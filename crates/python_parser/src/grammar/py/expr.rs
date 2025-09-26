@@ -1,5 +1,5 @@
 use crate::{
-    grammar::{ParseFailReason, ParseResult, py::is_statement_start_token},
+    grammar::{ParseFailReason, ParseResult},
     kind::{BinaryOperator, PyOpKind, PySyntaxKind, PyTokenKind, UNARY_PRIORITY, UnaryOperator},
     parser::{MarkerEventContainer, PyParser},
     parser_error::PyParseError,
@@ -18,25 +18,30 @@ pub fn parse_single_expr(p: &mut PyParser) -> ParseResult {
 
 // Parse tuple or single expression (handles comma-separated expressions)
 fn parse_tuple_or_expr(p: &mut PyParser) -> ParseResult {
-    let mut m = p.mark(PySyntaxKind::TupleExpr);
-    
+    let m = p.mark(PySyntaxKind::TupleExpr);
+
     // Parse first expression
     let first_expr = parse_sub_expr(p, 0)?;
-    
+
     // Check for comma (indicates tuple)
     if p.current_token() == PyTokenKind::TkComma {
         // This is a tuple - parse remaining elements
         while p.current_token() == PyTokenKind::TkComma {
             p.bump(); // consume comma
-            
+
             // Optional trailing comma (especially for single-element tuples)
-            if matches!(p.current_token(), 
-                PyTokenKind::TkNewline | PyTokenKind::TkRightParen | PyTokenKind::TkRightBrace |
-                PyTokenKind::TkRightBracket | PyTokenKind::TkEof | PyTokenKind::TkDedent
+            if matches!(
+                p.current_token(),
+                PyTokenKind::TkNewline
+                    | PyTokenKind::TkRightParen
+                    | PyTokenKind::TkRightBrace
+                    | PyTokenKind::TkRightBracket
+                    | PyTokenKind::TkEof
+                    | PyTokenKind::TkDedent
             ) {
                 break;
             }
-            
+
             // Parse next expression
             if parse_sub_expr(p, 0).is_err() {
                 p.push_error(PyParseError::syntax_error_from(
@@ -46,7 +51,7 @@ fn parse_tuple_or_expr(p: &mut PyParser) -> ParseResult {
                 break;
             }
         }
-        
+
         Ok(m.complete(p))
     } else {
         // Single expression, not a tuple
@@ -192,13 +197,13 @@ pub fn parse_lambda_expr(p: &mut PyParser) -> ParseResult {
 fn parse_yield_expr(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::YieldExpr);
     p.bump(); // consume 'yield'
-    
+
     // Parse optional value expression
     // yield can be used without a value (yield), or with a value (yield expr)
     // or with yield from (yield from expr)
     if p.current_token() == PyTokenKind::TkFrom {
         p.bump(); // consume 'from'
-        
+
         // Parse expression after 'yield from'
         if parse_expr(p).is_err() {
             p.push_error(PyParseError::syntax_error_from(
@@ -206,10 +211,16 @@ fn parse_yield_expr(p: &mut PyParser) -> ParseResult {
                 p.current_token_range(),
             ));
         }
-    } else if !matches!(p.current_token(), 
-        PyTokenKind::TkNewline | PyTokenKind::TkRightParen | PyTokenKind::TkComma | 
-        PyTokenKind::TkRightBracket | PyTokenKind::TkRightBrace | PyTokenKind::TkEof |
-        PyTokenKind::TkDedent | PyTokenKind::TkColon
+    } else if !matches!(
+        p.current_token(),
+        PyTokenKind::TkNewline
+            | PyTokenKind::TkRightParen
+            | PyTokenKind::TkComma
+            | PyTokenKind::TkRightBracket
+            | PyTokenKind::TkRightBrace
+            | PyTokenKind::TkEof
+            | PyTokenKind::TkDedent
+            | PyTokenKind::TkColon
     ) {
         // Parse optional yield value (if present)
         if parse_expr(p).is_err() {
@@ -219,14 +230,14 @@ fn parse_yield_expr(p: &mut PyParser) -> ParseResult {
             ));
         }
     }
-    
+
     Ok(m.complete(p))
 }
 
 fn parse_await_expr(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::AwaitExpr);
     p.bump(); // consume 'await'
-    
+
     // Parse awaitable expression
     if parse_expr(p).is_err() {
         p.push_error(PyParseError::syntax_error_from(
@@ -234,7 +245,7 @@ fn parse_await_expr(p: &mut PyParser) -> ParseResult {
             p.current_token_range(),
         ));
     }
-    
+
     Ok(m.complete(p))
 }
 
@@ -459,10 +470,10 @@ fn parse_suffixed_expr(p: &mut PyParser) -> ParseResult {
             PyTokenKind::TkLeftBracket => {
                 let m = cm.precede(p, PySyntaxKind::SubscriptExpr);
                 p.bump(); // consume '['
-                
+
                 // Parse index or slice expression
                 parse_subscript_inner(p);
-                
+
                 if p.current_token() == PyTokenKind::TkRightBracket {
                     p.bump();
                 } else {
@@ -603,65 +614,66 @@ fn parse_argument(p: &mut PyParser) {
     if p.current_token() == PyTokenKind::TkPow {
         let marker = p.mark(PySyntaxKind::StarredExpr);
         p.bump(); // consume '**'
-        
+
         if parse_single_expr(p).is_err() {
             p.push_error(PyParseError::syntax_error_from(
                 &t!("expected expression after '**'"),
                 p.current_token_range(),
             ));
         }
-        
+
         marker.complete(p);
         return;
     }
-    
+
     // Check for *args
     if p.current_token() == PyTokenKind::TkMul {
         let marker = p.mark(PySyntaxKind::StarredExpr);
         p.bump(); // consume '*'
-        
+
         if parse_single_expr(p).is_err() {
             p.push_error(PyParseError::syntax_error_from(
                 &t!("expected expression after '*'"),
                 p.current_token_range(),
             ));
         }
-        
+
         marker.complete(p);
         return;
     }
-    
-    // Check for keyword argument pattern: NAME '=' 
-    // We'll use the fact that in Python, keyword args have NAME = EXPR pattern
+
+    // Special handling for keyword arguments in call context
+    // Check if it's a simple name followed by '='
     if p.current_token() == PyTokenKind::TkName {
-        let marker = p.mark(PySyntaxKind::Keyword);
-        p.bump(); // consume name
-        
-        if p.current_token() == PyTokenKind::TkAssign {
-            // This is indeed a keyword argument
-            p.bump(); // consume '='
-            
-        // Parse value expression
-        if parse_single_expr(p).is_err() {
-            p.push_error(PyParseError::syntax_error_from(
-                &t!("expected value expression after '='"),
-                p.current_token_range(),
-            ));
-        }            marker.complete(p);
-            return;
-        } else {
-            // Not a keyword argument, rollback and parse as expression
-            marker.undo(p);
-            // We need to restore the parser position, but since we can't, 
-            // let's create a name expression manually
+        // Check if next token is '=' without consuming the name
+        let next_token = p.peek_next_token(); // Look ahead one token
+
+        if next_token == PyTokenKind::TkAssign {
+            // This is a keyword argument: name = value
+            let keyword_marker = p.mark(PySyntaxKind::Keyword);
+
+            // Parse name
             let name_marker = p.mark(PySyntaxKind::NameExpr);
-            // The name is already consumed, so we just complete the name expression
+            p.bump(); // consume name
             name_marker.complete(p);
+
+            // consume '='
+            p.bump();
+
+            // Parse value expression
+            if parse_single_expr(p).is_err() {
+                p.push_error(PyParseError::syntax_error_from(
+                    &t!("expected value expression after '='"),
+                    p.current_token_range(),
+                ));
+            }
+
+            keyword_marker.complete(p);
             return;
         }
     }
-    
-    // Parse regular argument expression
+
+    // Parse regular expression for positional arguments
     if parse_single_expr(p).is_err() {
         p.push_error(PyParseError::syntax_error_from(
             &t!("expected argument expression"),
@@ -673,9 +685,10 @@ fn parse_argument(p: &mut PyParser) {
 // Parse subscript/slice expression inside brackets
 fn parse_subscript_inner(p: &mut PyParser) {
     // Handle slice syntax: [start:end:step] or simple index [expr]
-    
+
     // Parse optional first expression (start or index)
-    if p.current_token() != PyTokenKind::TkColon && p.current_token() != PyTokenKind::TkRightBracket {
+    if p.current_token() != PyTokenKind::TkColon && p.current_token() != PyTokenKind::TkRightBracket
+    {
         if parse_expr(p).is_err() {
             p.push_error(PyParseError::syntax_error_from(
                 &t!("expected index or slice expression"),
@@ -684,14 +697,16 @@ fn parse_subscript_inner(p: &mut PyParser) {
             return;
         }
     }
-    
+
     // Check if this is a slice (contains colon)
     if p.current_token() == PyTokenKind::TkColon {
         let slice_m = p.mark(PySyntaxKind::SliceExpr);
         p.bump(); // consume ':'
-        
+
         // Parse optional end expression
-        if p.current_token() != PyTokenKind::TkColon && p.current_token() != PyTokenKind::TkRightBracket {
+        if p.current_token() != PyTokenKind::TkColon
+            && p.current_token() != PyTokenKind::TkRightBracket
+        {
             if parse_expr(p).is_err() {
                 p.push_error(PyParseError::syntax_error_from(
                     &t!("expected end expression in slice"),
@@ -699,11 +714,11 @@ fn parse_subscript_inner(p: &mut PyParser) {
                 ));
             }
         }
-        
+
         // Parse optional step if there's another colon
         if p.current_token() == PyTokenKind::TkColon {
             p.bump(); // consume second ':'
-            
+
             // Parse optional step expression
             if p.current_token() != PyTokenKind::TkRightBracket {
                 if parse_expr(p).is_err() {
@@ -714,7 +729,7 @@ fn parse_subscript_inner(p: &mut PyParser) {
                 }
             }
         }
-        
+
         slice_m.complete(p);
     }
 }

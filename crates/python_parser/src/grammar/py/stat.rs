@@ -432,7 +432,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
                 if p.current_token() == PyTokenKind::TkPow {
                     let single_param_m = p.mark(PySyntaxKind::Parameter);
                     p.bump(); // consume '**'
-                    
+
                     if p.current_token() == PyTokenKind::TkName {
                         p.bump(); // consume parameter name
                     } else {
@@ -441,14 +441,14 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
                             p.current_token_range(),
                         ));
                     }
-                    
+
                     single_param_m.complete(p);
                 }
                 // Check for *args
                 else if p.current_token() == PyTokenKind::TkMul {
                     let single_param_m = p.mark(PySyntaxKind::Parameter);
                     p.bump(); // consume '*'
-                    
+
                     if p.current_token() == PyTokenKind::TkName {
                         p.bump(); // consume parameter name
                     } else {
@@ -457,7 +457,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
                             p.current_token_range(),
                         ));
                     }
-                    
+
                     single_param_m.complete(p);
                 }
                 // Regular parameter
@@ -726,10 +726,10 @@ fn parse_from_import(p: &mut PyParser) -> ParseResult {
     }
 
     // Import list
-    if p.current_token() == PyTokenKind::TkName 
-        || p.current_token() == PyTokenKind::TkLeftParen 
-        || p.current_token() == PyTokenKind::TkMul {
-        
+    if p.current_token() == PyTokenKind::TkName
+        || p.current_token() == PyTokenKind::TkLeftParen
+        || p.current_token() == PyTokenKind::TkMul
+    {
         if p.current_token() == PyTokenKind::TkLeftParen {
             p.bump();
         }
@@ -891,25 +891,46 @@ fn parse_with(p: &mut PyParser) -> ParseResult {
 fn parse_with_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
     p.bump(); // consume 'with'
 
-    // Context expression
-    if parse_expr(p).is_err() {
-        p.push_error(PyParseError::syntax_error_from(
-            "expected context expression after 'with'",
-            p.current_token_range(),
-        ));
-    }
+    // Parse multiple context managers separated by commas
+    loop {
+        // Context expression
+        if parse_expr(p).is_err() {
+            p.push_error(PyParseError::syntax_error_from(
+                "expected context expression after 'with'",
+                p.current_token_range(),
+            ));
+            return Err(ParseFailReason::UnexpectedToken);
+        }
 
-    // Optional 'as' variable
-    if p.current_token() == PyTokenKind::TkAs {
-        p.bump();
-        if p.current_token() == PyTokenKind::TkName {
+        // Optional 'as' variable
+        if p.current_token() == PyTokenKind::TkAs {
             p.bump();
+            if p.current_token() == PyTokenKind::TkName {
+                p.bump();
+            } else {
+                p.push_error(PyParseError::syntax_error_from(
+                    "expected variable name after 'as'",
+                    p.current_token_range(),
+                ));
+            }
+        }
+
+        // Check for comma to continue with more context managers
+        if p.current_token() == PyTokenKind::TkComma {
+            p.bump(); // consume ','
+        } else {
+            break;
         }
     }
 
     // Colon
     if p.current_token() == PyTokenKind::TkColon {
         p.bump();
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            "expected ':' after with statement",
+            p.current_token_range(),
+        ));
     }
 
     // Consume optional newline after colon
@@ -1020,7 +1041,7 @@ fn parse_nonlocal(p: &mut PyParser) -> ParseResult {
 
 fn parse_yield_stmt(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::YieldStmt);
-    
+
     // Use the expression-level yield parsing by calling parse_expr
     // which will handle 'yield', 'yield from', etc.
     if parse_expr(p).is_err() {
@@ -1077,9 +1098,45 @@ fn consume_statement_terminator(p: &mut PyParser) {
 }
 
 fn parse_assign_or_expr_stat(p: &mut PyParser) -> ParseResult {
+    // Check for type annotation pattern first: NAME ':' TYPE ['=' EXPR]
+    if p.current_token() == PyTokenKind::TkName && p.peek_next_token() == PyTokenKind::TkColon {
+        let m = p.mark(PySyntaxKind::AnnAssignStmt);
+
+        // Parse name
+        let name_marker = p.mark(PySyntaxKind::NameExpr);
+        p.bump(); // consume name
+        name_marker.complete(p);
+
+        // Consume ':'
+        p.bump(); // consume ':'
+
+        // Parse type annotation
+        if super::expr::parse_single_expr(p).is_err() {
+            p.push_error(PyParseError::syntax_error_from(
+                "expected type annotation after ':'",
+                p.current_token_range(),
+            ));
+        }
+
+        // Optional assignment value
+        if p.current_token() == PyTokenKind::TkAssign {
+            p.bump(); // consume '='
+
+            if parse_expr(p).is_err() {
+                p.push_error(PyParseError::syntax_error_from(
+                    "expected expression after '='",
+                    p.current_token_range(),
+                ));
+            }
+        }
+
+        consume_statement_terminator(p);
+        return Ok(m.complete(p));
+    }
+
     let mut m = p.mark(PySyntaxKind::ExprStmt);
 
-    // Parse left side expression
+    // Parse the expression first (normal case)
     if parse_expr(p).is_err() {
         p.push_error(PyParseError::syntax_error_from(
             "expected expression",
