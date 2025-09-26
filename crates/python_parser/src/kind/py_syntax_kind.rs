@@ -103,8 +103,6 @@ pub enum PySyntaxKind {
     // Comments and whitespace
     Comment, // comment
     Newline, // newline
-    Indent,  // indentation
-    Dedent,  // dedentation
 
     UnknownStat, // unknown statement
 }

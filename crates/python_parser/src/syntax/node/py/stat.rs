@@ -1,3 +1,4 @@
+use super::{PyArguments, PyCaseClause, PyDecorator, PyExpr, PyNameExpr, PySuite};
 use crate::{
     kind::PySyntaxKind,
     syntax::traits::{PyAstNode, PySyntaxNode},
@@ -214,5 +215,307 @@ impl PyAstNode for PyStat {
             PySyntaxKind::ElifClause => PyElifStmt::cast(syntax).map(PyStat::ElifStmt),
             _ => None,
         }
+    }
+}
+
+// 为每个语句节点实现子节点访问方法
+impl PyExprStmt {
+    pub fn get_expr(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+}
+
+impl PyAssignStmt {
+    pub fn get_targets(&self) -> impl Iterator<Item = PyExpr> + '_ {
+        self.syntax().children().filter_map(PyExpr::cast)
+    }
+
+    pub fn get_value(&self) -> Option<PyExpr> {
+        self.syntax().children().filter_map(PyExpr::cast).last()
+    }
+}
+
+impl PyAnnAssignStmt {
+    pub fn get_target(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_annotation(&self) -> Option<PyExpr> {
+        self.syntax().children().filter_map(PyExpr::cast).nth(1)
+    }
+
+    pub fn get_value(&self) -> Option<PyExpr> {
+        self.syntax().children().filter_map(PyExpr::cast).nth(2)
+    }
+}
+
+impl PyAugAssignStmt {
+    pub fn get_target(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_value(&self) -> Option<PyExpr> {
+        self.syntax().children().filter_map(PyExpr::cast).nth(1)
+    }
+}
+
+impl PyFuncDef {
+    pub fn get_name(&self) -> Option<PyNameExpr> {
+        self.syntax().children().find_map(PyNameExpr::cast)
+    }
+
+    pub fn get_parameters(&self) -> Option<PyArguments> {
+        self.syntax().children().find_map(PyArguments::cast)
+    }
+
+    pub fn get_return_annotation(&self) -> Option<PyExpr> {
+        // 返回类型注解通常在参数列表之后
+        self.syntax().children().filter_map(PyExpr::cast).last()
+    }
+
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+
+    pub fn get_decorators(&self) -> impl Iterator<Item = PyDecorator> + '_ {
+        self.syntax().children().filter_map(PyDecorator::cast)
+    }
+}
+
+impl PyAsyncFuncDef {
+    pub fn get_name(&self) -> Option<PyNameExpr> {
+        self.syntax().children().find_map(PyNameExpr::cast)
+    }
+
+    pub fn get_parameters(&self) -> Option<PyArguments> {
+        self.syntax().children().find_map(PyArguments::cast)
+    }
+
+    pub fn get_return_annotation(&self) -> Option<PyExpr> {
+        self.syntax().children().filter_map(PyExpr::cast).last()
+    }
+
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+
+    pub fn get_decorators(&self) -> impl Iterator<Item = PyDecorator> + '_ {
+        self.syntax().children().filter_map(PyDecorator::cast)
+    }
+}
+
+impl PyClassDef {
+    pub fn get_name(&self) -> Option<PyNameExpr> {
+        self.syntax().children().find_map(PyNameExpr::cast)
+    }
+
+    pub fn get_bases(&self) -> impl Iterator<Item = PyExpr> + '_ {
+        self.syntax().children().filter_map(PyExpr::cast)
+    }
+
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+
+    pub fn get_decorators(&self) -> impl Iterator<Item = PyDecorator> + '_ {
+        self.syntax().children().filter_map(PyDecorator::cast)
+    }
+}
+
+impl PyIfStmt {
+    pub fn get_test(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+
+    pub fn get_elif_clauses(&self) -> impl Iterator<Item = PyElifStmt> + '_ {
+        self.syntax().children().filter_map(PyElifStmt::cast)
+    }
+
+    pub fn get_else_clause(&self) -> Option<PyElseStmt> {
+        self.syntax().children().find_map(PyElseStmt::cast)
+    }
+}
+
+impl PyWhileStmt {
+    pub fn get_test(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+
+    pub fn get_else_clause(&self) -> Option<PyElseStmt> {
+        self.syntax().children().find_map(PyElseStmt::cast)
+    }
+}
+
+impl PyForStmt {
+    pub fn get_target(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_iter(&self) -> Option<PyExpr> {
+        self.syntax().children().filter_map(PyExpr::cast).nth(1)
+    }
+
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+
+    pub fn get_else_clause(&self) -> Option<PyElseStmt> {
+        self.syntax().children().find_map(PyElseStmt::cast)
+    }
+}
+
+impl PyAsyncForStmt {
+    pub fn get_target(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_iter(&self) -> Option<PyExpr> {
+        self.syntax().children().filter_map(PyExpr::cast).nth(1)
+    }
+
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+
+    pub fn get_else_clause(&self) -> Option<PyElseStmt> {
+        self.syntax().children().find_map(PyElseStmt::cast)
+    }
+}
+
+impl PyWithStmt {
+    pub fn get_items(&self) -> impl Iterator<Item = PyExpr> + '_ {
+        self.syntax().children().filter_map(PyExpr::cast)
+    }
+
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+}
+
+impl PyAsyncWithStmt {
+    pub fn get_items(&self) -> impl Iterator<Item = PyExpr> + '_ {
+        self.syntax().children().filter_map(PyExpr::cast)
+    }
+
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+}
+
+impl PyTryStmt {
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+
+    pub fn get_handlers(&self) -> impl Iterator<Item = PyStat> + '_ {
+        self.syntax().children().filter_map(PyStat::cast)
+    }
+
+    pub fn get_else_clause(&self) -> Option<PyElseStmt> {
+        self.syntax().children().find_map(PyElseStmt::cast)
+    }
+
+    pub fn get_finally_clause(&self) -> Option<PySuite> {
+        self.syntax().children().filter_map(PySuite::cast).nth(1)
+    }
+}
+
+impl PyReturnStmt {
+    pub fn get_value(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+}
+
+impl PyYieldStmt {
+    pub fn get_value(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+}
+
+impl PyRaiseStmt {
+    pub fn get_exception(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_cause(&self) -> Option<PyExpr> {
+        self.syntax().children().filter_map(PyExpr::cast).nth(1)
+    }
+}
+
+impl PyAssertStmt {
+    pub fn get_test(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_msg(&self) -> Option<PyExpr> {
+        self.syntax().children().filter_map(PyExpr::cast).nth(1)
+    }
+}
+
+impl PyDeleteStmt {
+    pub fn get_targets(&self) -> impl Iterator<Item = PyExpr> + '_ {
+        self.syntax().children().filter_map(PyExpr::cast)
+    }
+}
+
+impl PyGlobalStmt {
+    pub fn get_names(&self) -> impl Iterator<Item = PyNameExpr> + '_ {
+        self.syntax().children().filter_map(PyNameExpr::cast)
+    }
+}
+
+impl PyNonlocalStmt {
+    pub fn get_names(&self) -> impl Iterator<Item = PyNameExpr> + '_ {
+        self.syntax().children().filter_map(PyNameExpr::cast)
+    }
+}
+
+impl PyImportStmt {
+    pub fn get_names(&self) -> impl Iterator<Item = PyExpr> + '_ {
+        self.syntax().children().filter_map(PyExpr::cast)
+    }
+}
+
+impl PyImportFromStmt {
+    pub fn get_module(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_names(&self) -> impl Iterator<Item = PyExpr> + '_ {
+        self.syntax().children().filter_map(PyExpr::cast).skip(1)
+    }
+}
+
+impl PyMatchStmt {
+    pub fn get_subject(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_cases(&self) -> impl Iterator<Item = PyCaseClause> + '_ {
+        self.syntax().children().filter_map(PyCaseClause::cast)
+    }
+}
+
+impl PyElifStmt {
+    pub fn get_test(&self) -> Option<PyExpr> {
+        self.syntax().children().find_map(PyExpr::cast)
+    }
+
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
+    }
+}
+
+impl PyElseStmt {
+    pub fn get_body(&self) -> Option<PySuite> {
+        self.syntax().children().find_map(PySuite::cast)
     }
 }
