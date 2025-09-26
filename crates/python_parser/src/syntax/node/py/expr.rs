@@ -61,6 +61,9 @@ py_expr_ast!(
     PyYieldFromExpr: YieldFromExpr,
     PyAwaitExpr: AwaitExpr,
     PyStarredExpr: StarredExpr,
+    PyDoubleStarredExpr: DoubleStarredExpr,
+    PyAssignExpr: AssignExpr,
+    PyConditionalExpr: ConditionalExpr,
     PyListCompExpr: ListCompExpr,
     PyDictCompExpr: DictCompExpr,
     PySetCompExpr: SetCompExpr,
@@ -91,6 +94,9 @@ pub enum PyExpr {
     YieldFromExpr(PyYieldFromExpr),
     AwaitExpr(PyAwaitExpr),
     StarredExpr(PyStarredExpr),
+    DoubleStarredExpr(PyDoubleStarredExpr),
+    AssignExpr(PyAssignExpr),
+    ConditionalExpr(PyConditionalExpr),
     ListCompExpr(PyListCompExpr),
     DictCompExpr(PyDictCompExpr),
     SetCompExpr(PySetCompExpr),
@@ -122,6 +128,9 @@ impl PyAstNode for PyExpr {
             PyExpr::YieldFromExpr(node) => node.syntax(),
             PyExpr::AwaitExpr(node) => node.syntax(),
             PyExpr::StarredExpr(node) => node.syntax(),
+            PyExpr::DoubleStarredExpr(node) => node.syntax(),
+            PyExpr::AssignExpr(node) => node.syntax(),
+            PyExpr::ConditionalExpr(node) => node.syntax(),
             PyExpr::ListCompExpr(node) => node.syntax(),
             PyExpr::DictCompExpr(node) => node.syntax(),
             PyExpr::SetCompExpr(node) => node.syntax(),
@@ -157,6 +166,9 @@ impl PyAstNode for PyExpr {
                 | PySyntaxKind::YieldFromExpr
                 | PySyntaxKind::AwaitExpr
                 | PySyntaxKind::StarredExpr
+                | PySyntaxKind::DoubleStarredExpr
+                | PySyntaxKind::AssignExpr
+                | PySyntaxKind::ConditionalExpr
                 | PySyntaxKind::ListCompExpr
                 | PySyntaxKind::DictCompExpr
                 | PySyntaxKind::SetCompExpr
@@ -193,6 +205,13 @@ impl PyAstNode for PyExpr {
             PySyntaxKind::YieldFromExpr => PyYieldFromExpr::cast(syntax).map(PyExpr::YieldFromExpr),
             PySyntaxKind::AwaitExpr => PyAwaitExpr::cast(syntax).map(PyExpr::AwaitExpr),
             PySyntaxKind::StarredExpr => PyStarredExpr::cast(syntax).map(PyExpr::StarredExpr),
+            PySyntaxKind::DoubleStarredExpr => {
+                PyDoubleStarredExpr::cast(syntax).map(PyExpr::DoubleStarredExpr)
+            }
+            PySyntaxKind::AssignExpr => PyAssignExpr::cast(syntax).map(PyExpr::AssignExpr),
+            PySyntaxKind::ConditionalExpr => {
+                PyConditionalExpr::cast(syntax).map(PyExpr::ConditionalExpr)
+            }
             PySyntaxKind::ListCompExpr => PyListCompExpr::cast(syntax).map(PyExpr::ListCompExpr),
             PySyntaxKind::DictCompExpr => PyDictCompExpr::cast(syntax).map(PyExpr::DictCompExpr),
             PySyntaxKind::SetCompExpr => PySetCompExpr::cast(syntax).map(PyExpr::SetCompExpr),

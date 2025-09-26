@@ -21,6 +21,7 @@ pub enum PyAst {
     Parameter(PyParameter),
     Arguments(PyArguments),
     Decorator(PyDecorator),
+    CaseClause(PyCaseClause),
 
     // Statement union
     Stat(PyStat),
@@ -37,6 +38,7 @@ impl PyAstNode for PyAst {
             PyAst::Parameter(node) => node.syntax(),
             PyAst::Arguments(node) => node.syntax(),
             PyAst::Decorator(node) => node.syntax(),
+            PyAst::CaseClause(node) => node.syntax(),
             PyAst::Stat(node) => node.syntax(),
             PyAst::Expr(node) => node.syntax(),
         }
@@ -51,6 +53,7 @@ impl PyAstNode for PyAst {
             || PyParameter::can_cast(kind)
             || PyArguments::can_cast(kind)
             || PyDecorator::can_cast(kind)
+            || PyCaseClause::can_cast(kind)
             || PyStat::can_cast(kind)
             || PyExpr::can_cast(kind)
     }
@@ -69,6 +72,8 @@ impl PyAstNode for PyAst {
             Some(PyAst::Arguments(args))
         } else if let Some(decorator) = PyDecorator::cast(syntax.clone()) {
             Some(PyAst::Decorator(decorator))
+        } else if let Some(case_clause) = PyCaseClause::cast(syntax.clone()) {
+            Some(PyAst::CaseClause(case_clause))
         } else if let Some(stat) = PyStat::cast(syntax.clone()) {
             Some(PyAst::Stat(stat))
         } else if let Some(expr) = PyExpr::cast(syntax.clone()) {

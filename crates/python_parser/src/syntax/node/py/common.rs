@@ -147,3 +147,32 @@ impl PyAstNode for PyDecorator {
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PyCaseClause {
+    syntax: PySyntaxNode,
+}
+
+impl PyAstNode for PyCaseClause {
+    fn syntax(&self) -> &PySyntaxNode {
+        &self.syntax
+    }
+
+    fn can_cast(kind: PySyntaxKind) -> bool
+    where
+        Self: Sized,
+    {
+        kind == PySyntaxKind::CaseClause
+    }
+
+    fn cast(syntax: PySyntaxNode) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        if Self::can_cast(syntax.kind().into()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+}
