@@ -289,7 +289,12 @@ fn parse_while(p: &mut PyParser) -> ParseResult {
     if !expect_keyword_with_recovery(p, PyTokenKind::TkColon, || {
         t!("expected ':' after while condition")
     }) {
-        recover_to_keywords(p, &[PyTokenKind::TkIndent]);
+        recover_to_keywords(p, &[PyTokenKind::TkNewline, PyTokenKind::TkIndent]);
+    }
+
+    // Consume optional newline after colon
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump();
     }
 
     // Parse suite (indented block)
@@ -357,6 +362,11 @@ fn parse_for_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
         ));
     }
 
+    // Consume optional newline after colon
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump();
+    }
+
     // Parse suite (indented block)
     if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
@@ -421,7 +431,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
                 if p.current_token() == PyTokenKind::TkName {
                     let single_param_m = p.mark(PySyntaxKind::Parameter);
                     p.bump();
-                    
+
                     // Optional type annotation
                     if p.current_token() == PyTokenKind::TkColon {
                         p.bump(); // consume ':'
@@ -434,7 +444,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
                         }
                         _annotation_m.complete(p);
                     }
-                    
+
                     // Optional default value
                     if p.current_token() == PyTokenKind::TkAssign {
                         p.bump(); // consume '='
@@ -445,7 +455,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
                             ));
                         }
                     }
-                    
+
                     single_param_m.complete(p);
                 } else {
                     break;
@@ -492,7 +502,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
         _return_annotation_m.complete(p);
     }
 
-    // Colon  
+    // Colon
     if p.current_token() == PyTokenKind::TkColon {
         p.bump();
     } else {
@@ -545,7 +555,7 @@ fn parse_class(p: &mut PyParser) -> ParseResult {
     // Optional inheritance
     if p.current_token() == PyTokenKind::TkLeftParen {
         p.smart_bump(); // consume '('
-        
+
         // Parse base classes
         if p.current_token() != PyTokenKind::TkRightParen {
             loop {
@@ -556,7 +566,7 @@ fn parse_class(p: &mut PyParser) -> ParseResult {
                     ));
                     break;
                 }
-                
+
                 if p.current_token() == PyTokenKind::TkComma {
                     p.bump();
                     // Allow trailing comma
@@ -568,7 +578,7 @@ fn parse_class(p: &mut PyParser) -> ParseResult {
                 }
             }
         }
-        
+
         if p.current_token() == PyTokenKind::TkRightParen {
             p.smart_bump(); // consume ')'
         } else {
@@ -757,6 +767,11 @@ fn parse_try(p: &mut PyParser) -> ParseResult {
         p.bump();
     }
 
+    // Consume optional newline after colon
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump();
+    }
+
     // Body
     if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
@@ -784,6 +799,11 @@ fn parse_try(p: &mut PyParser) -> ParseResult {
             p.bump();
         }
 
+        // Consume optional newline after colon
+        if p.current_token() == PyTokenKind::TkNewline {
+            p.bump();
+        }
+
         if p.current_token() == PyTokenKind::TkIndent {
             parse_suite(p)?;
         }
@@ -797,6 +817,11 @@ fn parse_try(p: &mut PyParser) -> ParseResult {
         p.bump(); // consume 'finally'
 
         if p.current_token() == PyTokenKind::TkColon {
+            p.bump();
+        }
+
+        // Consume optional newline after colon
+        if p.current_token() == PyTokenKind::TkNewline {
             p.bump();
         }
 
@@ -837,6 +862,11 @@ fn parse_with_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
 
     // Colon
     if p.current_token() == PyTokenKind::TkColon {
+        p.bump();
+    }
+
+    // Consume optional newline after colon
+    if p.current_token() == PyTokenKind::TkNewline {
         p.bump();
     }
 
@@ -943,19 +973,14 @@ fn parse_nonlocal(p: &mut PyParser) -> ParseResult {
 
 fn parse_yield_stmt(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::YieldStmt);
-    p.bump(); // consume 'yield'
-
-    // Optional expression
-    if !matches!(
-        p.current_token(),
-        PyTokenKind::TkNewline | PyTokenKind::TkEof
-    ) {
-        if parse_expr(p).is_err() {
-            p.push_error(PyParseError::syntax_error_from(
-                "expected expression after 'yield'",
-                p.current_token_range(),
-            ));
-        }
+    
+    // Use the expression-level yield parsing by calling parse_expr
+    // which will handle 'yield', 'yield from', etc.
+    if parse_expr(p).is_err() {
+        p.push_error(PyParseError::syntax_error_from(
+            "expected yield expression",
+            p.current_token_range(),
+        ));
     }
 
     Ok(m.complete(p))
@@ -1007,7 +1032,7 @@ fn consume_statement_terminator(p: &mut PyParser) {
 fn parse_assign_or_expr_stat(p: &mut PyParser) -> ParseResult {
     let mut m = p.mark(PySyntaxKind::ExprStmt);
 
-    // Parse left side expression  
+    // Parse left side expression
     if parse_expr(p).is_err() {
         p.push_error(PyParseError::syntax_error_from(
             "expected expression",
@@ -1029,25 +1054,35 @@ fn parse_assign_or_expr_stat(p: &mut PyParser) -> ParseResult {
                     p.current_token_range(),
                 ));
             }
-        },
+        }
         // Augmented assignments
-        PyTokenKind::TkPlusAssign | PyTokenKind::TkMinusAssign | PyTokenKind::TkMulAssign |
-        PyTokenKind::TkDivAssign | PyTokenKind::TkFloorDivAssign | PyTokenKind::TkModAssign |
-        PyTokenKind::TkPowAssign | PyTokenKind::TkMatMulAssign | PyTokenKind::TkBitAndAssign |
-        PyTokenKind::TkBitOrAssign | PyTokenKind::TkBitXorAssign | PyTokenKind::TkShlAssign |
-        PyTokenKind::TkShrAssign => {
+        PyTokenKind::TkPlusAssign
+        | PyTokenKind::TkMinusAssign
+        | PyTokenKind::TkMulAssign
+        | PyTokenKind::TkDivAssign
+        | PyTokenKind::TkFloorDivAssign
+        | PyTokenKind::TkModAssign
+        | PyTokenKind::TkPowAssign
+        | PyTokenKind::TkMatMulAssign
+        | PyTokenKind::TkBitAndAssign
+        | PyTokenKind::TkBitOrAssign
+        | PyTokenKind::TkBitXorAssign
+        | PyTokenKind::TkShlAssign
+        | PyTokenKind::TkShrAssign => {
             m.set_kind(p, PySyntaxKind::AugAssignStmt);
             let op_token = p.current_token();
             p.bump(); // consume augmented assignment operator
 
             if parse_expr(p).is_err() {
-                let op_str = format!("{:?}", op_token).replace("Tk", "").replace("Assign", "=");
+                let op_str = format!("{:?}", op_token)
+                    .replace("Tk", "")
+                    .replace("Assign", "=");
                 p.push_error(PyParseError::syntax_error_from(
                     &t!("expected expression after '{op}'", op = op_str),
                     p.current_token_range(),
                 ));
             }
-        },
+        }
         _ => {
             // Just an expression statement, keep ExprStmt kind
         }

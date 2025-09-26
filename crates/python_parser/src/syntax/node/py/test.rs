@@ -48,11 +48,10 @@ mod test {
             "3.14",
             "2.5e10",
             "0x1A",
-            "0o755", 
+            "0o755",
             "0b1010",
             "1_000_000",
             "3.14_15_93",
-            
             // Strings
             r#""hello world""#,
             r#"'single quotes'"#,
@@ -62,19 +61,17 @@ mod test {
             r#"u"unicode""#,
             r#""""triple quoted string""""#,
             r#"'''another triple quoted'''"#,
-            
             // Booleans and None
             "True",
-            "False", 
+            "False",
             "None",
-            
             // Basic expressions
             "x",
             "_var",
             "__private__",
             "CamelCase",
         ];
-        
+
         test_python_syntax_samples(literals);
     }
 
@@ -84,12 +81,10 @@ mod test {
             // Parentheses
             "(42)",
             "((x + y))",
-            
             // Attribute access
             "obj.attr",
             "obj.method()",
             "obj.attr.subattr",
-            
             // Subscript
             "arr[0]",
             "dict['key']",
@@ -97,7 +92,6 @@ mod test {
             "arr[1:5]",
             "arr[::2]",
             "arr[1:5:2]",
-            
             // Function calls
             "func()",
             "func(arg)",
@@ -107,32 +101,30 @@ mod test {
             "func(**kwargs)",
             "func(*args, **kwargs)",
         ];
-        
+
         test_python_syntax_samples(expressions);
     }
 
     // Test operators
-    #[test] 
+    #[test]
     fn test_operators() {
         let operators = &[
             // Arithmetic operators
             "1 + 2",
-            "5 - 3", 
+            "5 - 3",
             "4 * 6",
             "10 / 3",
             "10 // 3",
             "7 % 3",
             "2 ** 8",
-            
             // Unary operators
             "+x",
             "-y",
             "~z",
             "not condition",
-            
             // Comparison operators
             "a == b",
-            "a != b", 
+            "a != b",
             "a < b",
             "a <= b",
             "a > b",
@@ -141,27 +133,25 @@ mod test {
             // "a is not b",  // May not be implemented yet
             "a in b",
             // "a not in b", // May not be implemented yet
-            
+
             // Boolean operators
             "a and b",
             "a or b",
             "not a",
             "a and b or c",
-            
             // Bitwise operators
             "a & b",
             "a | b",
             "a ^ b",
             "a << 2",
             "a >> 2",
-            
             // Assignment operators - now implemented!
             "x = 42",
             "x += 5",
-            "x -= 3", 
+            "x -= 3",
             "x *= 2",
             "x /= 4",
-            "x //= 2", 
+            "x //= 2",
             "x %= 3",
             "x **= 2",
             "x &= mask",
@@ -170,7 +160,7 @@ mod test {
             "x <<= 1",
             "x >>= 1",
         ];
-        
+
         test_python_syntax_samples(operators);
     }
 
@@ -178,31 +168,28 @@ mod test {
     #[test]
     fn test_data_structures() {
         let data_structures = &[
-            // Lists  
+            // Lists
             "[]",
             "[1]",
             "[1, 2, 3]",
             "[[1, 2], [3, 4]]", // Nested lists
-            
             // List comprehensions - now implemented!
             "[x for x in range(10)]",
-            "[x for x in range(10) if x % 2 == 0]", 
+            "[x for x in range(10) if x % 2 == 0]",
             "[x * 2 for x in range(5)]",
-            
             // Tuples - now implemented!
-            "()", // Empty tuple
-            "(1,)", // Single element tuple  
+            "()",   // Empty tuple
+            "(1,)", // Single element tuple
             "(1, 2)",
             "(1, 2, 3)",
             "(a, b, c)", // Tuple with variables
-            
             // Dictionaries
             "{}",
             "{'key': 'value'}",
             "{'a': 1, 'b': 2}",
             "{'outer': {'inner': 'value'}}", // Nested dictionaries
         ];
-        
+
         test_python_syntax_samples(data_structures);
     }
 
@@ -223,7 +210,6 @@ elif x < 0:
 else:
     print("zero")
 "#,
-            
             // While loops
             r#"
 while condition:
@@ -235,7 +221,6 @@ while True:
         break
     continue
 "#,
-            
             // For loops
             r#"
 for item in items:
@@ -255,7 +240,6 @@ for i, value in enumerate(items):
 for key, value in dict.items():
     pass
 "#,
-            
             // Try/except
             r#"
 try:
@@ -273,7 +257,6 @@ except Exception:
 finally:
     cleanup()
 "#,
-            
             // With statements
             r#"
 with open('file.txt') as f:
@@ -284,11 +267,11 @@ with open('input.txt') as f1, open('output.txt', 'w') as f2:
     f2.write(f1.read())
 "#,
         ];
-        
+
         test_python_syntax_samples(control_flow);
     }
 
-    // Test function and class definitions  
+    // Test function and class definitions
     #[test]
     fn test_function_and_class_definitions() {
         let definitions = &[
@@ -313,12 +296,10 @@ def func_with_varargs(*args, **kwargs):
 def complex_func(pos_only, /, regular, *args, kw_only, **kwargs):
     return locals()
 "#,
-            
             // Lambda expressions
             "lambda x: x + 1",
             "lambda x, y: x * y",
             "lambda: 42",
-            
             // Decorators
             r#"
 @decorator
@@ -331,7 +312,6 @@ def decorated_func():
 def multi_decorated():
     pass
 "#,
-            
             // Class definitions
             r#"
 class SimpleClass:
@@ -351,7 +331,6 @@ class DerivedClass(BaseClass):
 class MultipleInheritance(Base1, Base2):
     pass
 "#,
-            
             // Class with decorators
             r#"
 @dataclass
@@ -360,7 +339,7 @@ class DecoratedClass:
     value: int = 0
 "#,
         ];
-        
+
         test_python_syntax_samples(definitions);
     }
 
@@ -382,7 +361,6 @@ def generator_with_send():
         value = yield value * 2
 "#,
             "yield from range(10)",
-            
             // Async/await
             r#"
 async def async_function():
@@ -401,7 +379,6 @@ async for item in async_iterator:
 async with async_context_manager() as cm:
     await cm.do_something()
 "#,
-            
             // Type annotations
             r#"
 def typed_function(x: int, y: str) -> bool:
@@ -410,15 +387,12 @@ def typed_function(x: int, y: str) -> bool:
             "name: str = 'default'",
             "values: List[int] = []",
             "mapping: Dict[str, Any] = {}",
-            
             // F-strings and string formatting
             r#"f"Hello {name}!""#,
             r#"f"Result: {value:.2f}""#,
             r#"f"{expression=}""#,
-            
-            // Walrus operator (Python 3.8+)  
+            // Walrus operator (Python 3.8+)
             "if (n := len(items)) > 5: print(n)",
-            
             // Match statements (Python 3.10+)
             r#"
 match value:
@@ -429,20 +403,17 @@ match value:
     case _:
         print("other")
 "#,
-            
             // Context expressions
             "value if condition else default",
-            
             // Starred expressions
             "*args",
             "**kwargs",
             "first, *middle, last = items",
-            
             // Ellipsis
             "...",
             "array[..., 0]",
         ];
-        
+
         test_python_syntax_samples(advanced);
     }
 
@@ -456,7 +427,6 @@ match value:
             "import os.path",
             "import numpy as np",
             "import pandas as pd, matplotlib.pyplot as plt",
-            
             // From imports
             "from os import path",
             "from sys import argv, exit",
@@ -466,15 +436,13 @@ match value:
             "from .. import parent_module",
             "from .submodule import function",
             "from ..parent import Class",
-            
             // Import with wildcard (not recommended but valid)
             "from os import *",
-            
             // Future imports
             "from __future__ import annotations",
             "from __future__ import division, print_function",
         ];
-        
+
         test_python_syntax_samples(imports);
     }
 
@@ -482,104 +450,151 @@ match value:
     #[test]
     fn test_working_python_features_summary() {
         println!("Testing Python parser with currently implemented features...");
-        
+
         // Test all working features we've identified
         let working_features = &[
             // Basic literals
-            "42", "3.14", "True", "False", "None",
-            r#""hello""#, r#"'world'"#,
-            
+            "42",
+            "3.14",
+            "True",
+            "False",
+            "None",
+            r#""hello""#,
+            r#"'world'"#,
             // Basic expressions
-            "x", "_var", "obj.attr", "func()", "arr[0]",
-            
+            "x",
+            "_var",
+            "obj.attr",
+            "func()",
+            "arr[0]",
             // Arithmetic operators
-            "1 + 2", "5 - 3", "4 * 6", "10 / 3", "2 ** 8",
-            "+x", "-y", "~z", "not condition",
-            
-            // Comparison operators  
-            "a == b", "a != b", "a < b", "a > b",
-            "a is b", "a in b",
-            
+            "1 + 2",
+            "5 - 3",
+            "4 * 6",
+            "10 / 3",
+            "2 ** 8",
+            "+x",
+            "-y",
+            "~z",
+            "not condition",
+            // Comparison operators
+            "a == b",
+            "a != b",
+            "a < b",
+            "a > b",
+            "a is b",
+            "a in b",
             // Boolean operators
-            "a and b", "a or b", "not a",
-            
+            "a and b",
+            "a or b",
+            "not a",
             // Bitwise operators
-            "a & b", "a | b", "a ^ b", "a << 2", "a >> 2",
-            
+            "a & b",
+            "a | b",
+            "a ^ b",
+            "a << 2",
+            "a >> 2",
             // Data structures
-            "[]", "[1]", "[1, 2, 3]",
-            "{}", "{'key': 'value'}", "{'a': 1, 'b': 2}",
-            "[[1, 2], [3, 4]]", "{'outer': {'inner': 'value'}}",
-            
+            "[]",
+            "[1]",
+            "[1, 2, 3]",
+            "{}",
+            "{'key': 'value'}",
+            "{'a': 1, 'b': 2}",
+            "[[1, 2], [3, 4]]",
+            "{'outer': {'inner': 'value'}}",
             // Function calls with arguments
-            "func()", "func(arg)", "func(arg1, arg2)",
-            
+            "func()",
+            "func(arg)",
+            "func(arg1, arg2)",
             // Basic imports
-            "import os", "import sys, os", "import numpy as np",
-            "from os import path", "from sys import argv, exit",
+            "import os",
+            "import sys, os",
+            "import numpy as np",
+            "from os import path",
+            "from sys import argv, exit",
         ];
-        
+
         println!("Testing {} working features...", working_features.len());
         test_python_syntax_samples(working_features);
         println!("All working features passed!");
     }
 
     /// Updated comprehensive test documenting the current Python parser implementation status
-    /// 
+    ///
     /// This test demonstrates what Python syntax features are currently supported
     /// by the parser and serves as a reference for the implementation progress.
     #[test]
     fn test_python_parser_implementation_status() {
         println!("=== Updated Python Parser Implementation Status ===");
-        
+
         // ✅ WORKING: Basic literals and expressions
         println!("✅ Testing basic literals and expressions...");
         let basic_features = &[
-            "42", "3.14", "True", "False", "None",
-            r#""string""#, r#"'string'"#,
-            "variable", "_private", "obj.attr", "func()", "arr[0]",
+            "42",
+            "3.14",
+            "True",
+            "False",
+            "None",
+            r#""string""#,
+            r#"'string'"#,
+            "variable",
+            "_private",
+            "obj.attr",
+            "func()",
+            "arr[0]",
         ];
         test_python_syntax_samples(basic_features);
-        
+
         // ✅ WORKING: All operators including assignments
         println!("✅ Testing operators (including assignments)...");
         let operators = &[
-            "1 + 2", "5 - 3", "4 * 6", "10 / 3", "2 ** 8",
-            "+x", "-y", "~z", "not x",
-            "a == b", "a != b", "a < b", "a > b", "a is b", "a in b",
-            "a and b", "a or b", "a & b", "a | b", "a ^ b", "a << 2", "a >> 2",
-            // Assignment operators now work!
+            "1 + 2", "5 - 3", "4 * 6", "10 / 3", "2 ** 8", "+x", "-y", "~z", "not x", "a == b",
+            "a != b", "a < b", "a > b", "a is b", "a in b", "a and b", "a or b", "a & b", "a | b",
+            "a ^ b", "a << 2", "a >> 2", // Assignment operators now work!
             "x = 42", "x += 5", "x *= 2", "x //= 3", "x **= 2",
         ];
         test_python_syntax_samples(operators);
-        
+
         // ✅ WORKING: Advanced data structures
         println!("✅ Testing advanced data structures...");
         let data_structures = &[
             // Lists and list comprehensions
-            "[]", "[1]", "[1, 2, 3]", "[[1, 2], [3, 4]]",
-            "[x for x in range(10)]", "[x * 2 for x in items if x > 0]",
-            
+            "[]",
+            "[1]",
+            "[1, 2, 3]",
+            "[[1, 2], [3, 4]]",
+            "[x for x in range(10)]",
+            "[x * 2 for x in items if x > 0]",
             // Tuples (now implemented!)
-            "()", "(1,)", "(1, 2)", "(1, 2, 3)", "(a, b, c)",
-            
-            // Dictionaries  
-            "{}", "{'key': 'value'}", "{'a': 1, 'b': 2}", "{'outer': {'inner': 'value'}}",
+            "()",
+            "(1,)",
+            "(1, 2)",
+            "(1, 2, 3)",
+            "(a, b, c)",
+            // Dictionaries
+            "{}",
+            "{'key': 'value'}",
+            "{'a': 1, 'b': 2}",
+            "{'outer': {'inner': 'value'}}",
         ];
         test_python_syntax_samples(data_structures);
-        
+
         // ✅ WORKING: Basic imports
         println!("✅ Testing basic imports...");
         let imports = &[
-            "import os", "import sys, os", "import numpy as np",
-            "from os import path", "from sys import argv, exit",
+            "import os",
+            "import sys, os",
+            "import numpy as np",
+            "from os import path",
+            "from sys import argv, exit",
         ];
         test_python_syntax_samples(imports);
-        
+
         println!("=== Updated Test Summary ===");
         println!("The Python parser now supports:");
         println!("✅ Expression-level parsing");
-        println!("✅ Basic literals and identifiers"); 
+        println!("✅ Basic literals and identifiers");
         println!("✅ All arithmetic, comparison, logical, and assignment operators");
         println!("✅ Lists, tuples, and dictionaries");
         println!("✅ List comprehensions [x for x in items if condition]");
@@ -590,7 +605,7 @@ match value:
         println!("");
         println!("⚠️ Statement-level parsing has basic implementation but needs testing:");
         println!("   - Function definitions (def) - implemented");
-        println!("   - Class definitions (class) - implemented"); 
+        println!("   - Class definitions (class) - implemented");
         println!("   - Control flow (if/elif/else) - implemented");
         println!("   - Compound statements with indentation - implemented");
         println!("");
@@ -607,7 +622,7 @@ match value:
     #[test]
     fn test_new_statement_features() {
         println!("=== Testing Newly Implemented Statement Features ===");
-        
+
         // Test simple function definition
         let simple_functions = &[
             r#"
@@ -623,10 +638,10 @@ def func_with_default(x, y=10):
     return x + y
 "#,
         ];
-        
+
         println!("Testing function definitions...");
         test_python_syntax_samples(simple_functions);
-        
+
         // Test simple class definition
         let simple_classes = &[
             r#"
@@ -639,10 +654,10 @@ class DerivedClass(BaseClass):
         pass
 "#,
         ];
-        
+
         println!("Testing class definitions...");
         test_python_syntax_samples(simple_classes);
-        
+
         // Test simple control flow
         let control_flow = &[
             r#"
@@ -658,10 +673,10 @@ else:
     print("zero")
 "#,
         ];
-        
+
         println!("Testing control flow...");
         test_python_syntax_samples(control_flow);
-        
+
         println!("✅ All newly implemented statement features are working!");
     }
 }
