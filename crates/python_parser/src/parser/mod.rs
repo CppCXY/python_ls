@@ -4,7 +4,7 @@ mod marker;
 mod parser_config;
 
 // pub use py_doc_parser::LuaDocParser;
-pub use py_parser::LuaParser;
+pub use py_parser::PyParser;
 #[allow(unused)]
 pub use marker::*;
 #[allow(unused)]

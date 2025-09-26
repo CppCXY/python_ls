@@ -31,10 +31,14 @@ pub enum PySyntaxKind {
     ElseClause,      // else clause
     WhileStmt,       // while statement
     ForStmt,         // for statement
+    AsyncForStmt,    // async for statement
     WithStmt,        // with statement
+    AsyncWithStmt,   // async with statement
     TryStmt,         // try statement
     ExceptClause,    // except clause
     FinallyClause,   // finally clause
+    MatchStmt,       // match statement (Python 3.10+)
+    CaseClause,      // case clause
     
     // Function and class definitions
     FuncDef,         // function definition
@@ -90,6 +94,8 @@ pub enum PySyntaxKind {
     Keyword,         // keyword argument
     Alias,           // import alias (as clause)
     Decorator,       // decorator
+    Decorators,      // list of decorators
+    Docstring,       // docstring (first string literal in module/class/function)
     
     // Comments and whitespace
     Comment,         // comment

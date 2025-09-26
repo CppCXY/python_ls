@@ -8,7 +8,7 @@ mod text;
 
 pub use kind::*;
 pub use lexer::{LexerConfig, LexerState, PyLexer, PyTokenData};
-pub use parser::{LuaParser, ParserConfig, SpecialFunction};
+pub use parser::{PyParser, ParserConfig, SpecialFunction};
 pub use parser_error::{LuaParseError, PyParseErrorKind};
 // pub use syntax::*;
 pub use text::LineIndex;

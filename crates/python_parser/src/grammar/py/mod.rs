@@ -3,15 +3,12 @@ mod stat;
 use stat::parse_stats;
 
 use crate::{
-    grammar::ParseFailReason,
     kind::{PySyntaxKind, PyTokenKind},
-    parser::{LuaParser, MarkerEventContainer},
+    parser::{MarkerEventContainer, PyParser},
     parser_error::LuaParseError,
 };
 
-use super::ParseResult;
-
-pub fn parse_module(p: &mut LuaParser) {
+pub fn parse_module(p: &mut PyParser) {
     let m = p.mark(PySyntaxKind::Module);
 
     p.init();
@@ -56,28 +53,7 @@ pub fn parse_module(p: &mut LuaParser) {
     m.complete(p);
 }
 
-fn parse_suite(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(PySyntaxKind::Suite);
-
-    parse_stats(p);
-
-    Ok(m.complete(p))
-}
-
-fn expect_token(p: &mut LuaParser, token: PyTokenKind) -> Result<(), ParseFailReason> {
-    if p.current_token() == token {
-        p.bump();
-        Ok(())
-    } else {
-        if p.current_token() == PyTokenKind::TkEof {
-            return Err(ParseFailReason::Eof);
-        }
-
-        Err(ParseFailReason::UnexpectedToken)
-    }
-}
-
-fn if_token_bump(p: &mut LuaParser, token: PyTokenKind) -> bool {
+fn if_token_bump(p: &mut PyParser, token: PyTokenKind) -> bool {
     if p.current_token() == token {
         p.bump();
         true

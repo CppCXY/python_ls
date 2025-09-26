@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use rowan::NodeCache;
 
 use crate::{kind::PyLanguageLevel, lexer::LexerConfig};
@@ -11,10 +9,7 @@ pub struct ParserConfig<'cache> {
 }
 
 impl<'cache> ParserConfig<'cache> {
-    pub fn new(
-        level: PyLanguageLevel,
-        node_cache: Option<&'cache mut NodeCache>,
-    ) -> Self {
+    pub fn new(level: PyLanguageLevel, node_cache: Option<&'cache mut NodeCache>) -> Self {
         Self {
             level,
             lexer_config: LexerConfig {

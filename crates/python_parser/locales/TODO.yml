@@ -1,0 +1,210 @@
+Invalid escape sequence '\%{char}':
+  en: Invalid escape sequence '\%{char}'
+  zh_CN: Invalid escape sequence '\%{char}'
+  zh_HK: Invalid escape sequence '\%{char}'
+Invalid hex escape sequence '\x%{hex}':
+  en: Invalid hex escape sequence '\x%{hex}'
+  zh_CN: Invalid hex escape sequence '\x%{hex}'
+  zh_HK: Invalid hex escape sequence '\x%{hex}'
+Invalid long string end, expected '%{eq}]':
+  en: Invalid long string end, expected '%{eq}]'
+  zh_CN: Invalid long string end, expected '%{eq}]'
+  zh_HK: Invalid long string end, expected '%{eq}]'
+Invalid long string start:
+  en: Invalid long string start
+  zh_CN: Invalid long string start
+  zh_HK: Invalid long string start
+Invalid long string start, expected '[', found '%{char}':
+  en: Invalid long string start, expected '[', found '%{char}'
+  zh_CN: Invalid long string start, expected '[', found '%{char}'
+  zh_HK: Invalid long string start, expected '[', found '%{char}'
+Invalid long string start, expected '[', found end of input:
+  en: Invalid long string start, expected '[', found end of input
+  zh_CN: Invalid long string start, expected '[', found end of input
+  zh_HK: Invalid long string start, expected '[', found end of input
+Invalid unicode escape sequence '\u{{%{unicode_hex}}}':
+  en: Invalid unicode escape sequence '\u{{%{unicode_hex}}}'
+  zh_CN: Invalid unicode escape sequence '\u{{%{unicode_hex}}}'
+  zh_HK: Invalid unicode escape sequence '\u{{%{unicode_hex}}}'
+String too short:
+  en: String too short
+  zh_CN: String too short
+  zh_HK: String too short
+The float literal '%{text}' is invalid, %{err}:
+  en: The float literal '%{text}' is invalid, %{err}
+  zh_CN: The float literal '%{text}' is invalid, %{err}
+  zh_HK: The float literal '%{text}' is invalid, %{err}
+The integer literal '%{text}' is invalid, %{err}:
+  en: The integer literal '%{text}' is invalid, %{err}
+  zh_CN: The integer literal '%{text}' is invalid, %{err}
+  zh_HK: The integer literal '%{text}' is invalid, %{err}
+The integer literal '%{text}' is too large to be represented:
+  en: The integer literal '%{text}' is too large to be represented
+  zh_CN: The integer literal '%{text}' is too large to be represented
+  zh_HK: The integer literal '%{text}' is too large to be represented
+The integer literal '%{text}' is too large to be represented in type 'long':
+  en: The integer literal '%{text}' is too large to be represented in type 'long'
+  zh_CN: The integer literal '%{text}' is too large to be represented in type 'long'
+  zh_HK: The integer literal '%{text}' is too large to be represented in type 'long'
+_version: 2
+binary operator '%{op}' is not followed by an expression:
+  en: binary operator '%{op}' is not followed by an expression
+  zh_CN: binary operator '%{op}' is not followed by an expression
+  zh_HK: binary operator '%{op}' is not followed by an expression
+expect primary expression (identifier or parenthesized expression):
+  en: expect primary expression (identifier or parenthesized expression)
+  zh_CN: expect primary expression (identifier or parenthesized expression)
+  zh_HK: expect primary expression (identifier or parenthesized expression)
+expected '(' for function call:
+  en: expected '(' for function call
+  zh_CN: expected '(' for function call
+  zh_HK: expected '(' for function call
+expected ')' to close argument list:
+  en: expected ')' to close argument list
+  zh_CN: expected ')' to close argument list
+  zh_HK: expected ')' to close argument list
+expected ')' to close parentheses:
+  en: expected ')' to close parentheses
+  zh_CN: expected ')' to close parentheses
+  zh_HK: expected ')' to close parentheses
+expected ':' after 'else':
+  en: expected ':' after 'else'
+  zh_CN: expected ':' after 'else'
+  zh_HK: expected ':' after 'else'
+expected ':' after dictionary key:
+  en: expected ':' after dictionary key
+  zh_CN: expected ':' after dictionary key
+  zh_HK: expected ':' after dictionary key
+expected ':' after lambda parameters:
+  en: expected ':' after lambda parameters
+  zh_CN: expected ':' after lambda parameters
+  zh_HK: expected ':' after lambda parameters
+expected ']' to close list:
+  en: expected ']' to close list
+  zh_CN: expected ']' to close list
+  zh_HK: expected ']' to close list
+expected ']' to close subscript:
+  en: expected ']' to close subscript
+  zh_CN: expected ']' to close subscript
+  zh_HK: expected ']' to close subscript
+expected '}' to close dictionary:
+  en: expected '}' to close dictionary
+  zh_CN: expected '}' to close dictionary
+  zh_HK: expected '}' to close dictionary
+expected argument expression:
+  en: expected argument expression
+  zh_CN: expected argument expression
+  zh_HK: expected argument expression
+expected attribute name after '.':
+  en: ''''
+  zh_CN: ''''
+  zh_HK: ''''
+expected expression after ':' in lambda:
+  en: expected expression after ':' in lambda
+  zh_CN: expected expression after ':' in lambda
+  zh_HK: expected expression after ':' in lambda
+expected expression in list:
+  en: expected expression in list
+  zh_CN: expected expression in list
+  zh_HK: expected expression in list
+expected expression in return statement:
+  en: expected expression in return statement
+  zh_CN: expected expression in return statement
+  zh_HK: expected expression in return statement
+expected expression inside parentheses:
+  en: expected expression inside parentheses
+  zh_CN: expected expression inside parentheses
+  zh_HK: expected expression inside parentheses
+expected index expression:
+  en: expected index expression
+  zh_CN: expected index expression
+  zh_HK: expected index expression
+expected key expression in dictionary:
+  en: expected key expression in dictionary
+  zh_CN: expected key expression in dictionary
+  zh_HK: expected key expression in dictionary
+expected label name after 'goto':
+  en: expected label name after 'goto'
+  zh_CN: expected label name after 'goto'
+  zh_HK: expected label name after 'goto'
+expected parameter name:
+  en: expected parameter name
+  zh_CN: expected parameter name
+  zh_HK: expected parameter name
+expected value expression in dictionary:
+  en: expected value expression in dictionary
+  zh_CN: expected value expression in dictionary
+  zh_HK: expected value expression in dictionary
+unary operator '%{op}' is not followed by an expression:
+  en: unary operator '%{op}' is not followed by an expression
+  zh_CN: unary operator '%{op}' is not followed by an expression
+  zh_HK: unary operator '%{op}' is not followed by an expression
+unexpected ')' - missing opening '(' or extra closing parenthesis:
+  en: unexpected ')' - missing opening '(' or extra closing parenthesis
+  zh_CN: unexpected ')' - missing opening '(' or extra closing parenthesis
+  zh_HK: unexpected ')' - missing opening '(' or extra closing parenthesis
+unexpected ')', expected expression:
+  en: unexpected ')', expected expression
+  zh_CN: unexpected ')', expected expression
+  zh_HK: unexpected ')', expected expression
+unexpected ',', expected expression:
+  en: unexpected ',', expected expression
+  zh_CN: unexpected ',', expected expression
+  zh_HK: unexpected ',', expected expression
+unexpected ':', expected expression:
+  en: unexpected ':', expected expression
+  zh_CN: unexpected ':', expected expression
+  zh_HK: unexpected ':', expected expression
+unexpected ']' - missing opening '[' or extra closing bracket:
+  en: unexpected ']' - missing opening '[' or extra closing bracket
+  zh_CN: unexpected ']' - missing opening '[' or extra closing bracket
+  zh_HK: unexpected ']' - missing opening '[' or extra closing bracket
+unexpected ']', expected expression:
+  en: unexpected ']', expected expression
+  zh_CN: unexpected ']', expected expression
+  zh_HK: unexpected ']', expected expression
+unexpected 'elif', expected expression:
+  en: unexpected 'elif', expected expression
+  zh_CN: unexpected 'elif', expected expression
+  zh_HK: unexpected 'elif', expected expression
+unexpected 'else' - missing corresponding 'if' statement:
+  en: unexpected 'else' - missing corresponding 'if' statement
+  zh_CN: unexpected 'else' - missing corresponding 'if' statement
+  zh_HK: unexpected 'else' - missing corresponding 'if' statement
+unexpected 'else', expected expression:
+  en: unexpected 'else', expected expression
+  zh_CN: unexpected 'else', expected expression
+  zh_HK: unexpected 'else', expected expression
+unexpected 'except', expected expression:
+  en: unexpected 'except', expected expression
+  zh_CN: unexpected 'except', expected expression
+  zh_HK: unexpected 'except', expected expression
+unexpected 'finally', expected expression:
+  en: unexpected 'finally', expected expression
+  zh_CN: unexpected 'finally', expected expression
+  zh_HK: unexpected 'finally', expected expression
+unexpected '}' - missing opening '{{' or extra closing brace:
+  en: unexpected '}' - missing opening '{{' or extra closing brace
+  zh_CN: unexpected '}' - missing opening '{{' or extra closing brace
+  zh_HK: unexpected '}' - missing opening '{{' or extra closing brace
+unexpected '}', expected expression:
+  en: unexpected '}', expected expression
+  zh_CN: unexpected '}', expected expression
+  zh_HK: unexpected '}', expected expression
+unexpected dedent, expected expression:
+  en: unexpected dedent, expected expression
+  zh_CN: unexpected dedent, expected expression
+  zh_HK: unexpected dedent, expected expression
+unexpected end of file, expected expression:
+  en: unexpected end of file, expected expression
+  zh_CN: unexpected end of file, expected expression
+  zh_HK: unexpected end of file, expected expression
+unexpected token '%{token}' - expected statement:
+  en: unexpected token '%{token}' - expected statement
+  zh_CN: unexpected token '%{token}' - expected statement
+  zh_HK: unexpected token '%{token}' - expected statement
+unexpected token '%{token}', expected expression:
+  en: unexpected token '%{token}', expected expression
+  zh_CN: unexpected token '%{token}', expected expression
+  zh_HK: unexpected token '%{token}', expected expression
+

@@ -96,8 +96,6 @@ impl<'a> PyLexer<'a> {
         self.tokenize()
     }
 
-
-
     fn name_to_kind(&self, name: &str) -> PyTokenKind {
         match name {
             // Python keywords

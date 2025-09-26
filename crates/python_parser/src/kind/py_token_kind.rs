@@ -28,6 +28,8 @@ pub enum PyTokenKind {
     TkIn,        // in
     TkIs,        // is
     TkLambda,    // lambda
+    TkMatch,     // match
+    TkCase,      // case
     TkNonlocal,  // nonlocal
     TkNone,      // None
     TkNot,       // not
@@ -93,6 +95,7 @@ pub enum PyTokenKind {
     TkColon,      // :
     TkSemicolon,  // ;
     TkArrow,      // ->
+    TkAt,         // @
 
 
     // Brackets
