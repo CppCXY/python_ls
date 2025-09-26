@@ -5,7 +5,7 @@ use stat::parse_stats;
 use crate::{
     kind::{PySyntaxKind, PyTokenKind},
     parser::{MarkerEventContainer, PyParser},
-    parser_error::LuaParseError,
+    parser_error::PyParseError,
 };
 
 pub fn parse_module(p: &mut PyParser) {
@@ -43,7 +43,7 @@ pub fn parse_module(p: &mut PyParser) {
                 }
             };
 
-            p.push_error(LuaParseError::syntax_error_from(&error_msg, error_range));
+            p.push_error(PyParseError::syntax_error_from(&error_msg, error_range));
 
             p.bump(); // Consume current token to avoid infinite loop
             m.complete(p);

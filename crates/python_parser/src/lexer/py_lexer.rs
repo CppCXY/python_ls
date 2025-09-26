@@ -1,5 +1,5 @@
 use crate::{
-    kind::PyTokenKind, parser_error::LuaParseError, text::Reader,
+    kind::PyTokenKind, parser_error::PyParseError, text::Reader,
 };
 
 use super::{is_name_continue, is_name_start, lexer_config::LexerConfig, token_data::PyTokenData};
@@ -22,7 +22,7 @@ pub struct PyLexer<'a> {
     reader: Reader<'a>,
     #[allow(unused)]
     lexer_config: LexerConfig,
-    errors: Option<&'a mut Vec<LuaParseError>>,
+    errors: Option<&'a mut Vec<PyParseError>>,
     state: LexerState,
     indent_info: IndentInfo,
 }
@@ -31,7 +31,7 @@ impl<'a> PyLexer<'a> {
     pub fn new(
         reader: Reader<'a>,
         lexer_config: LexerConfig,
-        errors: Option<&'a mut Vec<LuaParseError>>,
+        errors: Option<&'a mut Vec<PyParseError>>,
     ) -> Self {
         Self::new_with_state(reader, LexerState::Normal, lexer_config, errors)
     }
@@ -40,7 +40,7 @@ impl<'a> PyLexer<'a> {
         reader: Reader<'a>,
         state: LexerState,
         lexer_config: LexerConfig,
-        errors: Option<&'a mut Vec<LuaParseError>>,
+        errors: Option<&'a mut Vec<PyParseError>>,
     ) -> Self {
         PyLexer {
             reader,
@@ -669,7 +669,7 @@ impl<'a> PyLexer<'a> {
         R: AsRef<str>,
     {
         if let Some(errors) = &mut self.errors {
-            errors.push(LuaParseError::syntax_error_from(
+            errors.push(PyParseError::syntax_error_from(
                 msg().as_ref(),
                 self.reader.current_range(),
             ))

@@ -1,38 +1,38 @@
-mod comment_trait;
-mod description_trait;
+// mod comment_trait;
+// mod description_trait;
 
 use std::marker::PhantomData;
 
 use rowan::{TextRange, TextSize, WalkEvent};
 
 use crate::{
-    LuaAstPtr,
+    PyAstPtr,
     kind::{PySyntaxKind, PyTokenKind},
 };
 
-use super::LuaSyntaxId;
+use super::PySyntaxId;
 pub use super::{
-    LuaSyntaxElementChildren, LuaSyntaxNode, LuaSyntaxNodeChildren, LuaSyntaxToken, node::*,
+    PySyntaxElementChildren, PySyntaxNode, PySyntaxNodeChildren, PySyntaxToken, node::*,
 };
-pub use comment_trait::*;
-pub use description_trait::*;
+// pub use comment_trait::*;
+// pub use description_trait::*;
 
-pub trait LuaAstNode {
-    fn syntax(&self) -> &LuaSyntaxNode;
+pub trait PyAstNode {
+    fn syntax(&self) -> &PySyntaxNode;
 
     fn can_cast(kind: PySyntaxKind) -> bool
     where
         Self: Sized;
 
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
+    fn cast(syntax: PySyntaxNode) -> Option<Self>
     where
         Self: Sized;
 
-    fn child<N: LuaAstNode>(&self) -> Option<N> {
+    fn child<N: PyAstNode>(&self) -> Option<N> {
         self.syntax().children().find_map(N::cast)
     }
 
-    fn token<N: LuaAstToken>(&self) -> Option<N> {
+    fn token<N: PyAstToken>(&self) -> Option<N> {
         self.syntax()
             .children_with_tokens()
             .find_map(|it| it.into_token().and_then(N::cast))
@@ -48,30 +48,30 @@ pub trait LuaAstNode {
         LuaGeneralToken::cast(token)
     }
 
-    fn tokens<N: LuaAstToken>(&self) -> LuaAstTokenChildren<N> {
+    fn tokens<N: PyAstToken>(&self) -> LuaAstTokenChildren<N> {
         LuaAstTokenChildren::new(self.syntax())
     }
 
-    fn children<N: LuaAstNode>(&self) -> LuaAstChildren<N> {
-        LuaAstChildren::new(self.syntax())
+    fn children<N: PyAstNode>(&self) -> PyAstChildren<N> {
+        PyAstChildren::new(self.syntax())
     }
 
-    fn descendants<N: LuaAstNode>(&self) -> impl Iterator<Item = N> {
+    fn descendants<N: PyAstNode>(&self) -> impl Iterator<Item = N> {
         self.syntax().descendants().filter_map(N::cast)
     }
 
-    fn walk_descendants<N: LuaAstNode>(&self) -> impl Iterator<Item = WalkEvent<N>> {
+    fn walk_descendants<N: PyAstNode>(&self) -> impl Iterator<Item = WalkEvent<N>> {
         self.syntax().preorder().filter_map(|event| match event {
             WalkEvent::Enter(node) => N::cast(node).map(WalkEvent::Enter),
             WalkEvent::Leave(node) => N::cast(node).map(WalkEvent::Leave),
         })
     }
 
-    fn ancestors<N: LuaAstNode>(&self) -> impl Iterator<Item = N> {
+    fn ancestors<N: PyAstNode>(&self) -> impl Iterator<Item = N> {
         self.syntax().ancestors().filter_map(N::cast)
     }
 
-    fn get_root(&self) -> LuaSyntaxNode {
+    fn get_root(&self) -> PySyntaxNode {
         let syntax = self.syntax();
         if syntax.kind() == PySyntaxKind::Chunk.into() {
             syntax.clone()
@@ -80,7 +80,7 @@ pub trait LuaAstNode {
         }
     }
 
-    fn get_parent<N: LuaAstNode>(&self) -> Option<N> {
+    fn get_parent<N: PyAstNode>(&self) -> Option<N> {
         self.syntax().parent().and_then(N::cast)
     }
 
@@ -93,8 +93,8 @@ pub trait LuaAstNode {
         self.syntax().text_range()
     }
 
-    fn get_syntax_id(&self) -> LuaSyntaxId {
-        LuaSyntaxId::from_node(self.syntax())
+    fn get_syntax_id(&self) -> PySyntaxId {
+        PySyntaxId::from_node(self.syntax())
     }
 
     fn get_text(&self) -> String {
@@ -105,31 +105,31 @@ pub trait LuaAstNode {
         format!("{:#?}", self.syntax())
     }
 
-    fn to_ptr(&self) -> LuaAstPtr<Self>
+    fn to_ptr(&self) -> PyAstPtr<Self>
     where
         Self: Sized,
     {
-        LuaAstPtr::new(self)
+        PyAstPtr::new(self)
     }
 }
 
 /// An iterator over `SyntaxNode` children of a particular AST type.
 #[derive(Debug, Clone)]
-pub struct LuaAstChildren<N> {
-    inner: LuaSyntaxNodeChildren,
+pub struct PyAstChildren<N> {
+    inner: PySyntaxNodeChildren,
     ph: PhantomData<N>,
 }
 
-impl<N> LuaAstChildren<N> {
-    pub fn new(parent: &LuaSyntaxNode) -> LuaAstChildren<N> {
-        LuaAstChildren {
+impl<N> PyAstChildren<N> {
+    pub fn new(parent: &PySyntaxNode) -> PyAstChildren<N> {
+        PyAstChildren {
             inner: parent.children(),
             ph: PhantomData,
         }
     }
 }
 
-impl<N: LuaAstNode> Iterator for LuaAstChildren<N> {
+impl<N: PyAstNode> Iterator for PyAstChildren<N> {
     type Item = N;
 
     fn next(&mut self) -> Option<N> {
@@ -137,14 +137,14 @@ impl<N: LuaAstNode> Iterator for LuaAstChildren<N> {
     }
 }
 
-pub trait LuaAstToken {
-    fn syntax(&self) -> &LuaSyntaxToken;
+pub trait PyAstToken {
+    fn syntax(&self) -> &PySyntaxToken;
 
     fn can_cast(kind: PyTokenKind) -> bool
     where
         Self: Sized;
 
-    fn cast(syntax: LuaSyntaxToken) -> Option<Self>
+    fn cast(syntax: PySyntaxToken) -> Option<Self>
     where
         Self: Sized;
 
@@ -161,8 +161,8 @@ pub trait LuaAstToken {
         self.syntax().text_range()
     }
 
-    fn get_syntax_id(&self) -> LuaSyntaxId {
-        LuaSyntaxId::from_token(self.syntax())
+    fn get_syntax_id(&self) -> PySyntaxId {
+        PySyntaxId::from_token(self.syntax())
     }
 
     fn get_text(&self) -> &str {
@@ -181,11 +181,11 @@ pub trait LuaAstToken {
         }
     }
 
-    fn get_parent<N: LuaAstNode>(&self) -> Option<N> {
+    fn get_parent<N: PyAstNode>(&self) -> Option<N> {
         self.syntax().parent().and_then(N::cast)
     }
 
-    fn ancestors<N: LuaAstNode>(&self) -> impl Iterator<Item = N> {
+    fn ancestors<N: PyAstNode>(&self) -> impl Iterator<Item = N> {
         self.syntax().parent_ancestors().filter_map(N::cast)
     }
 
@@ -196,12 +196,12 @@ pub trait LuaAstToken {
 
 #[derive(Debug, Clone)]
 pub struct LuaAstTokenChildren<N> {
-    inner: LuaSyntaxElementChildren,
+    inner: PySyntaxElementChildren,
     ph: PhantomData<N>,
 }
 
 impl<N> LuaAstTokenChildren<N> {
-    pub fn new(parent: &LuaSyntaxNode) -> LuaAstTokenChildren<N> {
+    pub fn new(parent: &PySyntaxNode) -> LuaAstTokenChildren<N> {
         LuaAstTokenChildren {
             inner: parent.children_with_tokens(),
             ph: PhantomData,
@@ -209,7 +209,7 @@ impl<N> LuaAstTokenChildren<N> {
     }
 }
 
-impl<N: LuaAstToken> Iterator for LuaAstTokenChildren<N> {
+impl<N: PyAstToken> Iterator for LuaAstTokenChildren<N> {
     type Item = N;
 
     fn next(&mut self) -> Option<N> {

@@ -4,7 +4,7 @@ use crate::{
     grammar::{ParseFailReason, ParseResult, py::is_statement_start_token},
     kind::{PySyntaxKind, PyTokenKind},
     parser::{MarkerEventContainer, PyParser},
-    parser_error::LuaParseError,
+    parser_error::PyParseError,
 };
 
 use super::expr::parse_expr;
@@ -57,7 +57,7 @@ where
     F: FnOnce() -> Cow<'static, str>,
 {
     let error_msg = error_msg_fn();
-    p.push_error(LuaParseError::syntax_error_from(
+    p.push_error(PyParseError::syntax_error_from(
         &error_msg,
         p.current_token_range(),
     ));
@@ -73,7 +73,7 @@ where
         true
     } else {
         let error_msg = error_msg_fn();
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             &error_msg,
             p.current_token_range(),
         ));
@@ -209,7 +209,7 @@ fn parse_if(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected indented block after ':'",
             p.current_token_range(),
         ));
@@ -283,7 +283,7 @@ fn parse_while(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected indented block after ':'",
             p.current_token_range(),
         ));
@@ -305,7 +305,7 @@ fn parse_for_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
         if p.current_token() == PyTokenKind::TkName {
             p.bump();
         } else {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected variable name after 'for'",
                 p.current_token_range(),
             ));
@@ -323,7 +323,7 @@ fn parse_for_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
     if p.current_token() == PyTokenKind::TkIn {
         p.bump();
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected 'in' after variable list in for loop",
             p.current_token_range(),
         ));
@@ -338,7 +338,7 @@ fn parse_for_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
     if p.current_token() == PyTokenKind::TkColon {
         p.bump();
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected ':' after for clause",
             p.current_token_range(),
         ));
@@ -348,7 +348,7 @@ fn parse_for_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
     if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected indented block after ':'",
             p.current_token_range(),
         ));
@@ -390,7 +390,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkName {
         p.bump();
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected function name after 'def'",
             p.current_token_range(),
         ));
@@ -447,7 +447,7 @@ fn parse_class(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkName {
         p.bump();
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected class name after 'class'",
             p.current_token_range(),
         ));
@@ -611,7 +611,7 @@ fn parse_raise(p: &mut PyParser) -> ParseResult {
         PyTokenKind::TkNewline | PyTokenKind::TkEof
     ) {
         if parse_expr(p).is_err() {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected exception after 'raise'",
                 p.current_token_range(),
             ));
@@ -695,7 +695,7 @@ fn parse_with_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
 
     // Context expression
     if parse_expr(p).is_err() {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected context expression after 'with'",
             p.current_token_range(),
         ));
@@ -728,7 +728,7 @@ fn parse_assert(p: &mut PyParser) -> ParseResult {
 
     // Test expression
     if parse_expr(p).is_err() {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected test expression after 'assert'",
             p.current_token_range(),
         ));
@@ -738,7 +738,7 @@ fn parse_assert(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkComma {
         p.bump();
         if parse_expr(p).is_err() {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected message expression after ','",
                 p.current_token_range(),
             ));
@@ -754,7 +754,7 @@ fn parse_del(p: &mut PyParser) -> ParseResult {
 
     // Target list
     if parse_expr(p).is_err() {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected target after 'del'",
             p.current_token_range(),
         ));
@@ -772,7 +772,7 @@ fn parse_global(p: &mut PyParser) -> ParseResult {
         if p.current_token() == PyTokenKind::TkName {
             p.bump();
         } else {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected variable name",
                 p.current_token_range(),
             ));
@@ -798,7 +798,7 @@ fn parse_nonlocal(p: &mut PyParser) -> ParseResult {
         if p.current_token() == PyTokenKind::TkName {
             p.bump();
         } else {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected variable name",
                 p.current_token_range(),
             ));
@@ -825,7 +825,7 @@ fn parse_yield_stmt(p: &mut PyParser) -> ParseResult {
         PyTokenKind::TkNewline | PyTokenKind::TkEof
     ) {
         if parse_expr(p).is_err() {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected expression after 'yield'",
                 p.current_token_range(),
             ));
@@ -855,7 +855,7 @@ fn parse_async_stmt(p: &mut PyParser) -> ParseResult {
             Ok(m.complete(p))
         }
         _ => {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected 'def', 'with', or 'for' after 'async'",
                 p.current_token_range(),
             ));
@@ -883,7 +883,7 @@ fn parse_assign_or_expr_stat(p: &mut PyParser) -> ParseResult {
 
     // Parse expression
     if parse_expr(p).is_err() {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected expression",
             p.current_token_range(),
         ));
@@ -895,7 +895,7 @@ fn parse_assign_or_expr_stat(p: &mut PyParser) -> ParseResult {
         p.bump(); // consume assignment operator
 
         if parse_expr(p).is_err() {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected expression after assignment",
                 p.current_token_range(),
             ));
@@ -921,7 +921,7 @@ fn parse_decorators(p: &mut PyParser) -> ParseResult {
         
         // Parse the decorator expression
         if parse_expr(p).is_err() {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected expression after '@'",
                 p.current_token_range(),
             ));
@@ -952,7 +952,7 @@ fn parse_decorated(p: &mut PyParser) -> ParseResult {
                 parse_def(p)?;
                 Ok(m.complete(p))
             } else {
-                p.push_error(LuaParseError::syntax_error_from(
+                p.push_error(PyParseError::syntax_error_from(
                     "expected 'def' after 'async' in decorated function",
                     p.current_token_range(),
                 ));
@@ -960,7 +960,7 @@ fn parse_decorated(p: &mut PyParser) -> ParseResult {
             }
         }
         _ => {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected function or class definition after decorator(s)",
                 p.current_token_range(),
             ));
@@ -986,7 +986,7 @@ fn parse_match(p: &mut PyParser) -> ParseResult {
     
     // Parse the subject expression
     if parse_expr(p).is_err() {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected expression after 'match'",
             p.current_token_range(),
         ));
@@ -996,7 +996,7 @@ fn parse_match(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkColon {
         p.bump();
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected ':' after match expression",
             p.current_token_range(),
         ));
@@ -1025,7 +1025,7 @@ fn parse_case_clause(p: &mut PyParser) -> ParseResult {
     
     // Parse pattern
     if parse_expr(p).is_err() {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected pattern after 'case'",
             p.current_token_range(),
         ));
@@ -1035,7 +1035,7 @@ fn parse_case_clause(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkIf {
         p.bump();
         if parse_expr(p).is_err() {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 "expected expression after 'if' in case guard",
                 p.current_token_range(),
             ));
@@ -1046,7 +1046,7 @@ fn parse_case_clause(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkColon {
         p.bump();
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             "expected ':' after case pattern",
             p.current_token_range(),
         ));

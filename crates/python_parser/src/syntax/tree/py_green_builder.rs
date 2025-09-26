@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-enum LuaGreenElement {
+enum PyGreenElement {
     None,
     Node {
         kind: PySyntaxKind,
@@ -19,21 +19,21 @@ enum LuaGreenElement {
 }
 /// A builder for a green tree.
 #[derive(Default, Debug)]
-pub struct LuaGreenNodeBuilder<'cache> {
+pub struct PyGreenNodeBuilder<'cache> {
     parents: Vec<(PySyntaxKind, usize)>,
     children: Vec<usize>, /*index for elements*/
-    elements: Vec<LuaGreenElement>,
+    elements: Vec<PyGreenElement>,
     builder: rowan::GreenNodeBuilder<'cache>,
 }
 
-impl LuaGreenNodeBuilder<'_> {
+impl PyGreenNodeBuilder<'_> {
     /// Creates new builder.
-    pub fn new() -> LuaGreenNodeBuilder<'static> {
-        LuaGreenNodeBuilder::default()
+    pub fn new() -> PyGreenNodeBuilder<'static> {
+        PyGreenNodeBuilder::default()
     }
 
-    pub fn with_cache(cache: &mut NodeCache) -> LuaGreenNodeBuilder<'_> {
-        LuaGreenNodeBuilder {
+    pub fn with_cache(cache: &mut NodeCache) -> PyGreenNodeBuilder<'_> {
+        PyGreenNodeBuilder {
             parents: Vec::new(),
             children: Vec::new(),
             elements: Vec::new(),
@@ -44,7 +44,7 @@ impl LuaGreenNodeBuilder<'_> {
     #[inline]
     pub fn token(&mut self, kind: PyTokenKind, range: SourceRange) {
         let len = self.elements.len();
-        self.elements.push(LuaGreenElement::Token { kind, range });
+        self.elements.push(PyGreenElement::Token { kind, range });
         self.children.push(len);
     }
 
@@ -79,7 +79,7 @@ impl LuaGreenNodeBuilder<'_> {
 
                 let children = self.children.drain(first_start..).collect::<Vec<_>>();
 
-                LuaGreenElement::Node {
+                PyGreenElement::Node {
                     kind: parent_kind,
                     children,
                 }
@@ -104,7 +104,7 @@ impl LuaGreenNodeBuilder<'_> {
                     .children
                     .drain(child_start..=child_end)
                     .collect::<Vec<_>>();
-                LuaGreenElement::Node {
+                PyGreenElement::Node {
                     kind: parent_kind,
                     children,
                 }
@@ -129,7 +129,7 @@ impl LuaGreenNodeBuilder<'_> {
                     .children
                     .drain(child_start..=child_end)
                     .collect::<Vec<_>>();
-                LuaGreenElement::Node {
+                PyGreenElement::Node {
                     kind: parent_kind,
                     children,
                 }
@@ -150,12 +150,12 @@ impl LuaGreenNodeBuilder<'_> {
         self.elements.get(pos).is_some_and(|element| {
             matches!(
                 element,
-                LuaGreenElement::Token {
+                PyGreenElement::Token {
                     kind: PyTokenKind::TkWhitespace
                         | PyTokenKind::TkEndOfLine
                         | PyTokenKind::TkDocContinue,
                     ..
-                } | LuaGreenElement::Node {
+                } | PyGreenElement::Node {
                     kind: PySyntaxKind::Comment | PySyntaxKind::DocDescription,
                     ..
                 }
@@ -167,7 +167,7 @@ impl LuaGreenNodeBuilder<'_> {
         if let Some(element) = self.elements.get(pos) {
             matches!(
                 element,
-                LuaGreenElement::Token {
+                PyGreenElement::Token {
                     kind: PyTokenKind::TkWhitespace | PyTokenKind::TkEndOfLine,
                     ..
                 }
@@ -194,9 +194,9 @@ impl LuaGreenNodeBuilder<'_> {
                 continue;
             }
 
-            let element = std::mem::replace(&mut self.elements[item.index], LuaGreenElement::None);
+            let element = std::mem::replace(&mut self.elements[item.index], PyGreenElement::None);
             match element {
-                LuaGreenElement::Node { kind, children } => {
+                PyGreenElement::Node { kind, children } => {
                     self.builder.start_node(kind.into());
                     stack.push(StackItem {
                         index: item.index,
@@ -210,7 +210,7 @@ impl LuaGreenNodeBuilder<'_> {
                         });
                     }
                 }
-                LuaGreenElement::Token { kind, range } => {
+                PyGreenElement::Token { kind, range } => {
                     let start = range.start_offset;
                     let end = range.end_offset();
                     let token_text = &text[start..end];
@@ -226,13 +226,13 @@ impl LuaGreenNodeBuilder<'_> {
         if let Some(root_pos) = self.children.first() {
             let is_chunk_root = matches!(
                 self.elements[*root_pos],
-                LuaGreenElement::Node {
+                PyGreenElement::Node {
                     kind: PySyntaxKind::Chunk,
                     ..
                 }
             );
             if !is_chunk_root {
-                self.builder.start_node(PySyntaxKind::Chunk.into());
+                self.builder.start_node(PySyntaxKind::Module.into());
             }
 
             self.build_rowan_green(*root_pos, text);
@@ -244,7 +244,7 @@ impl LuaGreenNodeBuilder<'_> {
             return self.builder.finish();
         }
 
-        self.builder.start_node(PySyntaxKind::Chunk.into());
+        self.builder.start_node(PySyntaxKind::Module.into());
         self.builder.finish_node();
         self.builder.finish()
     }

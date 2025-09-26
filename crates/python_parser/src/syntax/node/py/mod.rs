@@ -6,7 +6,7 @@ mod test;
 use crate::{
     LuaCommentOwner, LuaSyntaxNode,
     kind::{PySyntaxKind, PyTokenKind},
-    syntax::traits::{LuaAstChildren, LuaAstNode, LuaAstToken},
+    syntax::traits::{LuaAstChildren, PyAstNode, LuaAstToken},
 };
 
 pub use expr::*;
@@ -21,7 +21,7 @@ pub struct LuaChunk {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaChunk {
+impl PyAstNode for LuaChunk {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -56,7 +56,7 @@ pub struct LuaBlock {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaBlock {
+impl PyAstNode for LuaBlock {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -91,7 +91,7 @@ pub struct LuaLocalName {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaLocalName {
+impl PyAstNode for LuaLocalName {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -130,7 +130,7 @@ pub struct LuaCallArgList {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaCallArgList {
+impl PyAstNode for LuaCallArgList {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -173,7 +173,7 @@ pub struct LuaLocalAttribute {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaLocalAttribute {
+impl PyAstNode for LuaLocalAttribute {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -222,7 +222,7 @@ pub struct LuaTableField {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaTableField {
+impl PyAstNode for LuaTableField {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -409,7 +409,7 @@ pub struct LuaParamName {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaParamName {
+impl PyAstNode for LuaParamName {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -448,7 +448,7 @@ pub struct LuaParamList {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaParamList {
+impl PyAstNode for LuaParamList {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -484,7 +484,7 @@ pub enum LuaIndexMemberExpr {
     TableField(LuaTableField),
 }
 
-impl LuaAstNode for LuaIndexMemberExpr {
+impl PyAstNode for LuaIndexMemberExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         match self {
             LuaIndexMemberExpr::IndexExpr(expr) => expr.syntax(),

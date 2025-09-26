@@ -4,7 +4,7 @@ use crate::{
     syntax::{
         LuaCommentOwner,
         node::LuaNameToken,
-        traits::{LuaAstChildren, LuaAstNode, LuaAstTokenChildren},
+        traits::{LuaAstChildren, PyAstNode, LuaAstTokenChildren},
     },
 };
 
@@ -34,7 +34,7 @@ pub enum LuaStat {
     GlobalStat(LuaGlobalStat),
 }
 
-impl LuaAstNode for LuaStat {
+impl PyAstNode for LuaStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         match self {
             LuaStat::LocalStat(node) => node.syntax(),
@@ -132,7 +132,7 @@ pub enum LuaLoopStat {
     ForRangeStat(LuaForRangeStat),
 }
 
-impl LuaAstNode for LuaLoopStat {
+impl PyAstNode for LuaLoopStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         match self {
             LuaLoopStat::WhileStat(node) => node.syntax(),
@@ -184,7 +184,7 @@ pub struct LuaLocalStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaLocalStat {
+impl PyAstNode for LuaLocalStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -243,7 +243,7 @@ pub struct LuaAssignStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaAssignStat {
+impl PyAstNode for LuaAssignStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -310,7 +310,7 @@ pub struct LuaCallExprStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaCallExprStat {
+impl PyAstNode for LuaCallExprStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -347,7 +347,7 @@ pub struct LuaFuncStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaFuncStat {
+impl PyAstNode for LuaFuncStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -388,7 +388,7 @@ pub struct LuaLocalFuncStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaLocalFuncStat {
+impl PyAstNode for LuaLocalFuncStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -429,7 +429,7 @@ pub struct LuaIfStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaIfStat {
+impl PyAstNode for LuaIfStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -482,7 +482,7 @@ pub struct LuaElseIfClauseStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaElseIfClauseStat {
+impl PyAstNode for LuaElseIfClauseStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -523,7 +523,7 @@ pub struct LuaElseClauseStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaElseClauseStat {
+impl PyAstNode for LuaElseClauseStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -561,7 +561,7 @@ pub enum LuaIfClauseStat {
     Else(LuaElseClauseStat),
 }
 
-impl LuaAstNode for LuaIfClauseStat {
+impl PyAstNode for LuaIfClauseStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         match self {
             LuaIfClauseStat::ElseIf(node) => node.syntax(),
@@ -617,7 +617,7 @@ pub struct LuaWhileStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaWhileStat {
+impl PyAstNode for LuaWhileStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -658,7 +658,7 @@ pub struct LuaDoStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaDoStat {
+impl PyAstNode for LuaDoStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -695,7 +695,7 @@ pub struct LuaForStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaForStat {
+impl PyAstNode for LuaForStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -740,7 +740,7 @@ pub struct LuaForRangeStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaForRangeStat {
+impl PyAstNode for LuaForRangeStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -785,7 +785,7 @@ pub struct LuaRepeatStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaRepeatStat {
+impl PyAstNode for LuaRepeatStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -826,7 +826,7 @@ pub struct LuaBreakStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaBreakStat {
+impl PyAstNode for LuaBreakStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -857,7 +857,7 @@ pub struct LuaReturnStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaReturnStat {
+impl PyAstNode for LuaReturnStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -894,7 +894,7 @@ pub struct LuaGotoStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaGotoStat {
+impl PyAstNode for LuaGotoStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -931,7 +931,7 @@ pub struct LuaLabelStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaLabelStat {
+impl PyAstNode for LuaLabelStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -968,7 +968,7 @@ pub struct LuaEmptyStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaEmptyStat {
+impl PyAstNode for LuaEmptyStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -999,7 +999,7 @@ pub struct LuaGlobalStat {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaGlobalStat {
+impl PyAstNode for LuaGlobalStat {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }

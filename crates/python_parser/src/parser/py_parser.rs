@@ -9,7 +9,7 @@ use crate::{
     grammar::parse_module,
     kind::PyTokenKind,
     lexer::{PyLexer, PyTokenData},
-    parser_error::LuaParseError,
+    parser_error::PyParseError,
     text::SourceRange,
 };
 
@@ -22,7 +22,7 @@ pub struct PyParser<'a> {
     current_token: PyTokenKind,
     mark_level: usize,
     pub parse_config: ParserConfig<'a>,
-    pub(crate) errors: &'a mut Vec<LuaParseError>,
+    pub(crate) errors: &'a mut Vec<PyParseError>,
     // 括号嵌套级别跟踪
     paren_level: usize,    // ()
     bracket_level: usize,  // []
@@ -50,7 +50,7 @@ impl MarkerEventContainer for PyParser<'_> {
 impl<'a> PyParser<'a> {
     #[allow(unused)]
     pub fn parse(text: &'a str, config: ParserConfig) -> Option<()> {
-        let mut errors: Vec<LuaParseError> = Vec::new();
+        let mut errors: Vec<PyParseError> = Vec::new();
         let tokens = {
             let mut lexer =
                 PyLexer::new(Reader::new(text), config.lexer_config(), Some(&mut errors));
@@ -235,7 +235,7 @@ impl<'a> PyParser<'a> {
         }
     }
 
-    pub fn push_error(&mut self, err: LuaParseError) {
+    pub fn push_error(&mut self, err: PyParseError) {
         self.errors.push(err);
     }
 
@@ -243,7 +243,7 @@ impl<'a> PyParser<'a> {
         !self.errors.is_empty()
     }
 
-    pub fn get_errors(&self) -> Vec<LuaParseError> {
+    pub fn get_errors(&self) -> Vec<PyParseError> {
         self.errors.clone()
     }
 
@@ -350,89 +350,3 @@ fn is_invalid_kind(kind: PyTokenKind) -> bool {
             | PyTokenKind::TkComment
     )
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use crate::text::Reader;
-//     use crate::{
-//         PyParser, kind::PyTokenKind, lexer::PyLexer, parser::ParserConfig,
-//         parser_error::LuaParseError,
-//     };
-
-//     #[allow(unused)]
-//     fn new_parser<'a>(
-//         text: &'a str,
-//         config: ParserConfig<'a>,
-//         errors: &'a mut Vec<LuaParseError>,
-//         show_tokens: bool,
-//     ) -> PyParser<'a> {
-//         let tokens = {
-//             let mut lexer = PyLexer::new(Reader::new(text), config.lexer_config(), Some(errors));
-//             lexer.tokenize()
-//         };
-
-//         if show_tokens {
-//             println!("tokens: ");
-//             for t in &tokens {
-//                 println!("{:?}", t);
-//             }
-//         }
-
-//         let mut parser = PyParser {
-//             text,
-//             events: Vec::new(),
-//             tokens,
-//             token_index: 0,
-//             current_token: PyTokenKind::None,
-//             parse_config: config,
-//             mark_level: 0,
-//             errors,
-//         };
-//         parser.init();
-
-//         parser
-//     }
-
-//     #[test]
-//     fn test_parse_and_ast() {
-//         let lua_code = r#"
-//             function foo(a, b)
-//                 return a + b
-//             end
-//         "#;
-
-//         let tree = PyParser::parse(lua_code, ParserConfig::default());
-//         println!("{:#?}", tree.get_red_root());
-//     }
-
-//     #[test]
-//     fn test_parse_and_ast_with_error() {
-//         let lua_code = r#"
-//             function foo(a, b)
-//                 return a + b
-//         "#;
-
-//         let tree = PyParser::parse(lua_code, ParserConfig::default());
-//         println!("{:#?}", tree.get_red_root());
-//     }
-
-//     #[test]
-//     fn test_parse_comment() {
-//         let lua_code = r#"
-//             -- comment
-//             local t
-//             -- inline comment
-//         "#;
-
-//         let tree = PyParser::parse(lua_code, ParserConfig::default());
-//         println!("{:#?}", tree.get_red_root());
-//     }
-
-//     #[test]
-//     fn test_parse_empty_file() {
-//         let lua_code = r#""#;
-
-//         let tree = PyParser::parse(lua_code, ParserConfig::default());
-//         println!("{:#?}", tree.get_red_root());
-//     }
-// }

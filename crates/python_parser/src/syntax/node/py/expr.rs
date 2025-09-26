@@ -3,7 +3,7 @@ use crate::{
     kind::PySyntaxKind,
     syntax::{
         node::{LuaBinaryOpToken, LuaNameToken, LuaUnaryOpToken},
-        traits::{LuaAstChildren, LuaAstNode, LuaCommentOwner},
+        traits::{LuaAstChildren, PyAstNode, LuaCommentOwner},
     },
 };
 
@@ -24,7 +24,7 @@ pub enum LuaExpr {
     IndexExpr(LuaIndexExpr),
 }
 
-impl LuaAstNode for LuaExpr {
+impl PyAstNode for LuaExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         match self {
             LuaExpr::CallExpr(node) => node.syntax(),
@@ -98,7 +98,7 @@ pub enum LuaVarExpr {
     IndexExpr(LuaIndexExpr),
 }
 
-impl LuaAstNode for LuaVarExpr {
+impl PyAstNode for LuaVarExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         match self {
             LuaVarExpr::NameExpr(node) => node.syntax(),
@@ -151,7 +151,7 @@ pub enum LuaSingleArgExpr {
     LiteralExpr(LuaLiteralExpr),
 }
 
-impl LuaAstNode for LuaSingleArgExpr {
+impl PyAstNode for LuaSingleArgExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         match self {
             LuaSingleArgExpr::TableExpr(node) => node.syntax(),
@@ -204,7 +204,7 @@ pub struct LuaNameExpr {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaNameExpr {
+impl PyAstNode for LuaNameExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -254,7 +254,7 @@ pub struct LuaIndexExpr {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaIndexExpr {
+impl PyAstNode for LuaIndexExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -349,7 +349,7 @@ pub struct LuaCallExpr {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaCallExpr {
+impl PyAstNode for LuaCallExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -449,7 +449,7 @@ pub struct LuaTableExpr {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaTableExpr {
+impl PyAstNode for LuaTableExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -506,7 +506,7 @@ pub struct LuaLiteralExpr {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaLiteralExpr {
+impl PyAstNode for LuaLiteralExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -547,7 +547,7 @@ pub struct LuaBinaryExpr {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaBinaryExpr {
+impl PyAstNode for LuaBinaryExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -601,7 +601,7 @@ pub struct LuaUnaryExpr {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaUnaryExpr {
+impl PyAstNode for LuaUnaryExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -646,7 +646,7 @@ pub struct LuaClosureExpr {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaClosureExpr {
+impl PyAstNode for LuaClosureExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }
@@ -691,7 +691,7 @@ pub struct LuaParenExpr {
     syntax: LuaSyntaxNode,
 }
 
-impl LuaAstNode for LuaParenExpr {
+impl PyAstNode for LuaParenExpr {
     fn syntax(&self) -> &LuaSyntaxNode {
         &self.syntax
     }

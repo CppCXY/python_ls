@@ -6,31 +6,31 @@ use crate::{
     text::SourceRange,
 };
 
-use super::lua_green_builder::LuaGreenNodeBuilder;
+use super::py_green_builder::PyGreenNodeBuilder;
 
 #[derive(Debug)]
-pub struct LuaTreeBuilder<'a> {
+pub struct PyTreeBuilder<'a> {
     text: &'a str,
     events: Vec<MarkEvent>,
-    green_builder: LuaGreenNodeBuilder<'a>,
+    green_builder: PyGreenNodeBuilder<'a>,
 }
 
-impl<'a> LuaTreeBuilder<'a> {
+impl<'a> PyTreeBuilder<'a> {
     pub fn new(
         text: &'a str,
         events: Vec<MarkEvent>,
         node_cache: Option<&'a mut NodeCache>,
     ) -> Self {
         match node_cache {
-            Some(cache) => LuaTreeBuilder {
+            Some(cache) => PyTreeBuilder {
                 text,
                 events,
-                green_builder: LuaGreenNodeBuilder::with_cache(cache),
+                green_builder: PyGreenNodeBuilder::with_cache(cache),
             },
-            None => LuaTreeBuilder {
+            None => PyTreeBuilder {
                 text,
                 events,
-                green_builder: LuaGreenNodeBuilder::new(),
+                green_builder: PyGreenNodeBuilder::new(),
             },
         }
     }

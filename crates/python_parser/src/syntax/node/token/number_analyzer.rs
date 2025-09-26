@@ -1,9 +1,9 @@
 use crate::{
     LuaSyntaxToken,
-    parser_error::{LuaParseError, LuaParseErrorKind},
+    parser_error::{PyParseError, LuaParseErrorKind},
 };
 
-pub fn float_token_value(token: &LuaSyntaxToken) -> Result<f64, LuaParseError> {
+pub fn float_token_value(token: &LuaSyntaxToken) -> Result<f64, PyParseError> {
     let text = token.text();
     let hex = text.starts_with("0x") || text.starts_with("0X");
 
@@ -57,7 +57,7 @@ pub fn float_token_value(token: &LuaSyntaxToken) -> Result<f64, LuaParseError> {
             };
 
         let mut value = float_part.parse::<f64>().map_err(|e| {
-            LuaParseError::new(
+            PyParseError::new(
                 LuaParseErrorKind::SyntaxError,
                 &t!(
                     "The float literal '%{text}' is invalid, %{err}",
@@ -109,7 +109,7 @@ impl IntegerOrUnsigned {
     }
 }
 
-pub fn int_token_value(token: &LuaSyntaxToken) -> Result<IntegerOrUnsigned, LuaParseError> {
+pub fn int_token_value(token: &LuaSyntaxToken) -> Result<IntegerOrUnsigned, PyParseError> {
     let text = token.text();
     let repr = if text.starts_with("0x") || text.starts_with("0X") {
         IntegerRepr::Hex
@@ -169,7 +169,7 @@ pub fn int_token_value(token: &LuaSyntaxToken) -> Result<IntegerOrUnsigned, LuaP
 
                 match unsigned_value {
                     Ok(value) => Ok(IntegerOrUnsigned::Uint(value)),
-                    Err(_) => Err(LuaParseError::new(
+                    Err(_) => Err(PyParseError::new(
                         LuaParseErrorKind::SyntaxError,
                         &t!(
                             "The integer literal '%{text}' is too large to be represented",
@@ -182,7 +182,7 @@ pub fn int_token_value(token: &LuaSyntaxToken) -> Result<IntegerOrUnsigned, LuaP
                 *e.kind(),
                 std::num::IntErrorKind::NegOverflow | std::num::IntErrorKind::PosOverflow
             ) {
-                Err(LuaParseError::new(
+                Err(PyParseError::new(
                     LuaParseErrorKind::SyntaxError,
                     &t!(
                         "The integer literal '%{text}' is too large to be represented in type 'long'",
@@ -191,7 +191,7 @@ pub fn int_token_value(token: &LuaSyntaxToken) -> Result<IntegerOrUnsigned, LuaP
                     range,
                 ))
             } else {
-                Err(LuaParseError::new(
+                Err(PyParseError::new(
                     LuaParseErrorKind::SyntaxError,
                     &t!(
                         "The integer literal '%{text}' is invalid, %{err}",

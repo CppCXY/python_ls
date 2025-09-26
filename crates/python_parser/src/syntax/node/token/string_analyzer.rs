@@ -1,10 +1,10 @@
 use crate::{
     LuaKind, LuaSyntaxToken,
     kind::PyTokenKind,
-    parser_error::{LuaParseError, LuaParseErrorKind},
+    parser_error::{PyParseError, LuaParseErrorKind},
 };
 
-pub fn string_token_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> {
+pub fn string_token_value(token: &LuaSyntaxToken) -> Result<String, PyParseError> {
     match token.kind() {
         LuaKind::Token(PyTokenKind::TkString) => normal_string_value(token),
         LuaKind::Token(PyTokenKind::TkLongString) => long_string_value(token),
@@ -12,11 +12,11 @@ pub fn string_token_value(token: &LuaSyntaxToken) -> Result<String, LuaParseErro
     }
 }
 
-fn long_string_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> {
+fn long_string_value(token: &LuaSyntaxToken) -> Result<String, PyParseError> {
     let range = token.text_range();
     let text = token.text();
     if text.len() < 4 {
-        return Err(LuaParseError::new(
+        return Err(PyParseError::new(
             LuaParseErrorKind::SyntaxError,
             &t!("String too short"),
             range,
@@ -30,7 +30,7 @@ fn long_string_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> {
     // check first char
     if let Some((_, first_char)) = chars.next() {
         if first_char != '[' {
-            return Err(LuaParseError::new(
+            return Err(PyParseError::new(
                 LuaParseErrorKind::SyntaxError,
                 &t!(
                     "Invalid long string start, expected '[', found '%{char}'",
@@ -40,7 +40,7 @@ fn long_string_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> {
             ));
         }
     } else {
-        return Err(LuaParseError::new(
+        return Err(PyParseError::new(
             LuaParseErrorKind::SyntaxError,
             &t!("Invalid long string start, expected '[', found end of input"),
             range,
@@ -55,7 +55,7 @@ fn long_string_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> {
             i = idx + 1;
             break;
         } else {
-            return Err(LuaParseError::new(
+            return Err(PyParseError::new(
                 LuaParseErrorKind::SyntaxError,
                 &t!("Invalid long string start"),
                 range,
@@ -65,7 +65,7 @@ fn long_string_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> {
 
     // check string len is enough
     if text.len() < i + equal_num + 2 {
-        return Err(LuaParseError::new(
+        return Err(PyParseError::new(
             LuaParseErrorKind::SyntaxError,
             &t!(
                 "Invalid long string end, expected '%{eq}]'",
@@ -95,7 +95,7 @@ fn long_string_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> {
     Ok(content.to_string())
 }
 
-fn normal_string_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> {
+fn normal_string_value(token: &LuaSyntaxToken) -> Result<String, PyParseError> {
     let text = token.text();
     if text.len() < 2 {
         return Ok(String::new());
@@ -125,7 +125,7 @@ fn normal_string_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> 
                                     result.push(value as char);
                                 }
                             } else {
-                                return Err(LuaParseError::new(
+                                return Err(PyParseError::new(
                                     LuaParseErrorKind::SyntaxError,
                                     &t!("Invalid hex escape sequence '\\x%{hex}'", hex = hex),
                                     token.text_range(),
@@ -141,7 +141,7 @@ fn normal_string_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> 
                                     if let Some(unicode_char) = std::char::from_u32(code_point) {
                                         result.push(unicode_char);
                                     } else {
-                                        return Err(LuaParseError::new(
+                                        return Err(PyParseError::new(
                                             LuaParseErrorKind::SyntaxError,
                                             &t!(
                                                 "Invalid unicode escape sequence '\\u{{%{unicode_hex}}}'",
@@ -185,7 +185,7 @@ fn normal_string_value(token: &LuaSyntaxToken) -> Result<String, LuaParseError> 
                             result.push(next_char);
                         }
                         _ => {
-                            return Err(LuaParseError::new(
+                            return Err(PyParseError::new(
                                 LuaParseErrorKind::SyntaxError,
                                 &t!("Invalid escape sequence '\\%{char}'", char = next_char),
                                 token.text_range(),

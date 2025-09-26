@@ -2,7 +2,7 @@ use crate::{
     grammar::{ParseFailReason, ParseResult, py::is_statement_start_token},
     kind::{BinaryOperator, PyOpKind, PySyntaxKind, PyTokenKind, UNARY_PRIORITY, UnaryOperator},
     parser::{PyParser, MarkerEventContainer},
-    parser_error::LuaParseError,
+    parser_error::PyParseError,
 };
 
 use super::if_token_bump;
@@ -21,7 +21,7 @@ fn parse_sub_expr(p: &mut PyParser, limit: i32) -> ParseResult {
         match parse_sub_expr(p, UNARY_PRIORITY) {
             Ok(_) => {}
             Err(err) => {
-                p.push_error(LuaParseError::syntax_error_from(
+                p.push_error(PyParseError::syntax_error_from(
                     &t!(
                         "unary operator '%{op}' is not followed by an expression",
                         op = op_token
@@ -45,7 +45,7 @@ fn parse_sub_expr(p: &mut PyParser, limit: i32) -> ParseResult {
         match parse_sub_expr(p, bop.get_priority().right) {
             Ok(_) => {}
             Err(err) => {
-                p.push_error(LuaParseError::syntax_error_from(
+                p.push_error(PyParseError::syntax_error_from(
                     &t!(
                         "binary operator '%{op}' is not followed by an expression",
                         op = op_token
@@ -101,7 +101,7 @@ fn parse_simple_expr(p: &mut PyParser) -> ParseResult {
                 ),
             };
 
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 &error_msg,
                 p.current_token_range(),
             ));
@@ -123,7 +123,7 @@ pub fn parse_lambda_expr(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkColon {
         p.bump();
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             &t!("expected ':' after lambda parameters"),
             p.current_token_range(),
         ));
@@ -131,7 +131,7 @@ pub fn parse_lambda_expr(p: &mut PyParser) -> ParseResult {
 
     // Parse lambda body expression
     if parse_expr(p).is_err() {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             &t!("expected expression after ':' in lambda"),
             p.current_token_range(),
         ));
@@ -147,7 +147,7 @@ fn parse_list_expr(p: &mut PyParser) -> ParseResult {
     if p.current_token() != PyTokenKind::TkRightBracket {
         loop {
             if parse_expr(p).is_err() {
-                p.push_error(LuaParseError::syntax_error_from(
+                p.push_error(PyParseError::syntax_error_from(
                     &t!("expected expression in list"),
                     p.current_token_range(),
                 ));
@@ -169,7 +169,7 @@ fn parse_list_expr(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkRightBracket {
         p.smart_bump(); // consume ']' and update bracket context
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             &t!("expected ']' to close list"),
             p.current_token_range(),
         ));
@@ -186,7 +186,7 @@ fn parse_dict_expr(p: &mut PyParser) -> ParseResult {
         loop {
             // Parse key
             if parse_expr(p).is_err() {
-                p.push_error(LuaParseError::syntax_error_from(
+                p.push_error(PyParseError::syntax_error_from(
                     &t!("expected key expression in dictionary"),
                     p.current_token_range(),
                 ));
@@ -196,7 +196,7 @@ fn parse_dict_expr(p: &mut PyParser) -> ParseResult {
             if p.current_token() == PyTokenKind::TkColon {
                 p.bump();
             } else {
-                p.push_error(LuaParseError::syntax_error_from(
+                p.push_error(PyParseError::syntax_error_from(
                     &t!("expected ':' after dictionary key"),
                     p.current_token_range(),
                 ));
@@ -205,7 +205,7 @@ fn parse_dict_expr(p: &mut PyParser) -> ParseResult {
 
             // Parse value
             if parse_expr(p).is_err() {
-                p.push_error(LuaParseError::syntax_error_from(
+                p.push_error(PyParseError::syntax_error_from(
                     &t!("expected value expression in dictionary"),
                     p.current_token_range(),
                 ));
@@ -227,7 +227,7 @@ fn parse_dict_expr(p: &mut PyParser) -> ParseResult {
     if p.current_token() == PyTokenKind::TkRightBrace {
         p.bump();
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             &t!("expected '}' to close dictionary"),
             p.current_token_range(),
         ));
@@ -245,7 +245,7 @@ fn parse_lambda_params(p: &mut PyParser) -> ParseResult {
             p.bump(); // parameter name
             param_m.complete(p);
         } else {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 &t!("expected parameter name"),
                 p.current_token_range(),
             ));
@@ -284,7 +284,7 @@ fn parse_suffixed_expr(p: &mut PyParser) -> ParseResult {
             match parse_expr(p) {
                 Ok(_) => {}
                 Err(err) => {
-                    p.push_error(LuaParseError::syntax_error_from(
+                    p.push_error(PyParseError::syntax_error_from(
                         &t!("expected expression inside parentheses"),
                         paren_range,
                     ));
@@ -294,7 +294,7 @@ fn parse_suffixed_expr(p: &mut PyParser) -> ParseResult {
             if p.current_token() == PyTokenKind::TkRightParen {
                 p.smart_bump(); // consume ')' and update paren context
             } else {
-                p.push_error(LuaParseError::syntax_error_from(
+                p.push_error(PyParseError::syntax_error_from(
                     &t!("expected ')' to close parentheses"),
                     paren_range,
                 ));
@@ -302,7 +302,7 @@ fn parse_suffixed_expr(p: &mut PyParser) -> ParseResult {
             m.complete(p)
         }
         _ => {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 &t!("expect primary expression (identifier or parenthesized expression)"),
                 p.current_token_range(),
             ));
@@ -318,7 +318,7 @@ fn parse_suffixed_expr(p: &mut PyParser) -> ParseResult {
                 if p.current_token() == PyTokenKind::TkName {
                     p.bump(); // consume attribute name
                 } else {
-                    p.push_error(LuaParseError::syntax_error_from(
+                    p.push_error(PyParseError::syntax_error_from(
                         &t!("expected attribute name after '.'"),
                         p.current_token_range(),
                     ));
@@ -329,7 +329,7 @@ fn parse_suffixed_expr(p: &mut PyParser) -> ParseResult {
                 let m = cm.precede(p, PySyntaxKind::SubscriptExpr);
                 p.bump(); // consume '['
                 if parse_expr(p).is_err() {
-                    p.push_error(LuaParseError::syntax_error_from(
+                    p.push_error(PyParseError::syntax_error_from(
                         &t!("expected index expression"),
                         p.current_token_range(),
                     ));
@@ -337,7 +337,7 @@ fn parse_suffixed_expr(p: &mut PyParser) -> ParseResult {
                 if p.current_token() == PyTokenKind::TkRightBracket {
                     p.bump();
                 } else {
-                    p.push_error(LuaParseError::syntax_error_from(
+                    p.push_error(PyParseError::syntax_error_from(
                         &t!("expected ']' to close subscript"),
                         p.current_token_range(),
                     ));
@@ -376,7 +376,7 @@ fn parse_args(p: &mut PyParser) -> ParseResult {
                 match parse_expr(p) {
                     Ok(_) => {}
                     Err(_) => {
-                        p.push_error(LuaParseError::syntax_error_from(
+                        p.push_error(PyParseError::syntax_error_from(
                             &t!("expected argument expression"),
                             p.current_token_range(),
                         ));
@@ -414,13 +414,13 @@ fn parse_args(p: &mut PyParser) -> ParseResult {
         if p.current_token() == PyTokenKind::TkRightParen {
             p.bump();
         } else {
-            p.push_error(LuaParseError::syntax_error_from(
+            p.push_error(PyParseError::syntax_error_from(
                 &t!("expected ')' to close argument list"),
                 p.current_token_range(),
             ));
         }
     } else {
-        p.push_error(LuaParseError::syntax_error_from(
+        p.push_error(PyParseError::syntax_error_from(
             &t!("expected '(' for function call"),
             p.current_token_range(),
         ));

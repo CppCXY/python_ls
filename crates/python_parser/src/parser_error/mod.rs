@@ -9,15 +9,15 @@ pub enum PyParseErrorKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LuaParseError {
+pub struct PyParseError {
     pub kind: PyParseErrorKind,
     pub message: String,
     pub range: TextRange,
 }
 
-impl LuaParseError {
+impl PyParseError {
     pub fn new(kind: PyParseErrorKind, message: &str, range: TextRange) -> Self {
-        LuaParseError {
+        PyParseError {
             kind,
             message: message.to_string(),
             range,
@@ -25,7 +25,7 @@ impl LuaParseError {
     }
 
     pub fn syntax_error_from(message: &str, range: SourceRange) -> Self {
-        LuaParseError {
+        PyParseError {
             kind: PyParseErrorKind::SyntaxError,
             message: message.to_string(),
             range: range.into(),
@@ -33,7 +33,7 @@ impl LuaParseError {
     }
 
     pub fn doc_error_from(message: &str, range: SourceRange) -> Self {
-        LuaParseError {
+        PyParseError {
             kind: PyParseErrorKind::DocError,
             message: message.to_string(),
             range: range.into(),

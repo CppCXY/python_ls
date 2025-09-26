@@ -3,10 +3,10 @@ use crate::{
     kind::{PySyntaxKind, PyTokenKind},
 };
 
-use super::{LuaAstNode, LuaComment, LuaSyntaxNode};
+use super::{PyAstNode, LuaComment, PySyntaxNode};
 
 #[allow(unused)]
-pub trait LuaCommentOwner: LuaAstNode {
+pub trait LuaCommentOwner: PyAstNode {
     fn get_comments(&self) -> Vec<LuaComment> {
         let mut comments = vec![];
         if let Some(attached_comment) = find_attached_comment(self.syntax()) {
@@ -29,7 +29,7 @@ pub trait LuaCommentOwner: LuaAstNode {
     }
 }
 
-fn find_attached_comment(node: &LuaSyntaxNode) -> Option<LuaSyntaxNode> {
+fn find_attached_comment(node: &PySyntaxNode) -> Option<PySyntaxNode> {
     let mut prev_sibling = node.prev_sibling_or_token();
     let mut meet_end_of_line = false;
     for _ in 0..=2 {
@@ -56,7 +56,7 @@ fn find_attached_comment(node: &LuaSyntaxNode) -> Option<LuaSyntaxNode> {
     None
 }
 
-fn find_inline_comment(node: &LuaSyntaxNode) -> Option<LuaSyntaxNode> {
+fn find_inline_comment(node: &PySyntaxNode) -> Option<PySyntaxNode> {
     let mut next_sibling = node.next_sibling_or_token();
     for _ in 0..=3 {
         next_sibling.as_ref()?;
