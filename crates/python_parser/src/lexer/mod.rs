@@ -4,8 +4,8 @@ mod py_lexer;
 mod token_data;
 
 pub use lexer_config::LexerConfig;
-pub use py_doc_lexer::{LuaDocLexer, LuaDocLexerState};
-pub use py_lexer::LuaLexer;
+// pub use py_doc_lexer::{LuaDocLexer, LuaDocLexerState};
+pub use py_lexer::PyLexer;
 pub use token_data::PyTokenData;
 
 fn is_name_start(ch: char) -> bool {

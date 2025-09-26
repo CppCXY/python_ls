@@ -3,14 +3,14 @@ mod kind;
 mod lexer;
 mod parser;
 mod parser_error;
-mod syntax;
+// mod syntax;
 mod text;
 
 pub use kind::*;
-pub use lexer::{LexerConfig, LexerState, LuaLexer, PyTokenData};
+pub use lexer::{LexerConfig, LexerState, PyLexer, PyTokenData};
 pub use parser::{LuaParser, ParserConfig, SpecialFunction};
-pub use parser_error::{LuaParseError, LuaParseErrorKind};
-pub use syntax::*;
+pub use parser_error::{LuaParseError, PyParseErrorKind};
+// pub use syntax::*;
 pub use text::LineIndex;
 pub use text::{Reader, SourceRange};
 

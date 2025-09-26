@@ -202,7 +202,7 @@ impl LuaAstNode for LuaAst {
         matches!(
             kind,
             PySyntaxKind::Chunk
-                | PySyntaxKind::Block
+                | PySyntaxKind::Suite
                 | PySyntaxKind::AssignStat
                 | PySyntaxKind::LocalStat
                 | PySyntaxKind::CallExprStat
@@ -296,7 +296,7 @@ impl LuaAstNode for LuaAst {
     {
         match syntax.kind().into() {
             PySyntaxKind::Chunk => LuaChunk::cast(syntax).map(LuaAst::LuaChunk),
-            PySyntaxKind::Block => LuaBlock::cast(syntax).map(LuaAst::LuaBlock),
+            PySyntaxKind::Suite => LuaBlock::cast(syntax).map(LuaAst::LuaBlock),
             PySyntaxKind::AssignStat => LuaAssignStat::cast(syntax).map(LuaAst::LuaAssignStat),
             PySyntaxKind::LocalStat => LuaLocalStat::cast(syntax).map(LuaAst::LuaLocalStat),
             PySyntaxKind::CallExprStat => {

@@ -145,7 +145,7 @@ fn find_attached_node(comment: &LuaSyntaxNode) -> Option<LuaSyntaxNode> {
                 LuaKind::Syntax(PySyntaxKind::Comment) => {
                     return None;
                 }
-                LuaKind::Syntax(PySyntaxKind::Block) => {
+                LuaKind::Syntax(PySyntaxKind::Suite) => {
                     let first_child = comment.first_child()?;
                     if first_child.kind() == LuaKind::Syntax(PySyntaxKind::Comment) {
                         return None;

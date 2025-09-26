@@ -1,59 +1,42 @@
 mod expr;
 mod stat;
-mod test;
-
 use stat::parse_stats;
 
 use crate::{
     grammar::ParseFailReason,
-    kind::{LuaSyntaxKind, LuaTokenKind},
+    kind::{PySyntaxKind, PyTokenKind},
     parser::{LuaParser, MarkerEventContainer},
     parser_error::LuaParseError,
 };
 
 use super::ParseResult;
 
-pub fn parse_chunk(p: &mut LuaParser) {
-    let m = p.mark(LuaSyntaxKind::Block);
+pub fn parse_module(p: &mut LuaParser) {
+    let m = p.mark(PySyntaxKind::Module);
 
     p.init();
-    while p.current_token() != LuaTokenKind::TkEof {
+    while p.current_token() != PyTokenKind::TkEof {
         let consume_count = p.current_token_index();
         parse_stats(p);
 
         // Check if no token was consumed to prevent infinite loop
         if p.current_token_index() == consume_count {
             let error_range = p.current_token_range();
-            let m = p.mark(LuaSyntaxKind::UnknownStat);
+            let m = p.mark(PySyntaxKind::UnknownStat);
 
             // Provide more detailed error information
             let error_msg = match p.current_token() {
-                LuaTokenKind::TkRightBrace => {
+                PyTokenKind::TkRightBrace => {
                     t!("unexpected '}' - missing opening '{{' or extra closing brace")
                 }
-                LuaTokenKind::TkRightParen => {
+                PyTokenKind::TkRightParen => {
                     t!("unexpected ')' - missing opening '(' or extra closing parenthesis")
                 }
-                LuaTokenKind::TkRightBracket => {
+                PyTokenKind::TkRightBracket => {
                     t!("unexpected ']' - missing opening '[' or extra closing bracket")
                 }
-                LuaTokenKind::TkElse => {
+                PyTokenKind::TkElse => {
                     t!("unexpected 'else' - missing corresponding 'if' statement")
-                }
-                LuaTokenKind::TkElseIf => {
-                    t!("unexpected 'elseif' - missing corresponding 'if' statement")
-                }
-                LuaTokenKind::TkEnd => {
-                    t!("unexpected 'end' - missing corresponding block statement")
-                }
-                LuaTokenKind::TkUntil => {
-                    t!("unexpected 'until' - missing corresponding 'repeat' statement")
-                }
-                LuaTokenKind::TkThen => {
-                    t!("unexpected 'then' - missing corresponding 'if' statement")
-                }
-                LuaTokenKind::TkDo => {
-                    t!("unexpected 'do' - missing corresponding loop statement")
                 }
                 _ => {
                     t!(
@@ -73,20 +56,20 @@ pub fn parse_chunk(p: &mut LuaParser) {
     m.complete(p);
 }
 
-fn parse_block(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::Block);
+fn parse_suite(p: &mut LuaParser) -> ParseResult {
+    let m = p.mark(PySyntaxKind::Suite);
 
     parse_stats(p);
 
     Ok(m.complete(p))
 }
 
-fn expect_token(p: &mut LuaParser, token: LuaTokenKind) -> Result<(), ParseFailReason> {
+fn expect_token(p: &mut LuaParser, token: PyTokenKind) -> Result<(), ParseFailReason> {
     if p.current_token() == token {
         p.bump();
         Ok(())
     } else {
-        if p.current_token() == LuaTokenKind::TkEof {
+        if p.current_token() == PyTokenKind::TkEof {
             return Err(ParseFailReason::Eof);
         }
 
@@ -94,7 +77,7 @@ fn expect_token(p: &mut LuaParser, token: LuaTokenKind) -> Result<(), ParseFailR
     }
 }
 
-fn if_token_bump(p: &mut LuaParser, token: LuaTokenKind) -> bool {
+fn if_token_bump(p: &mut LuaParser, token: PyTokenKind) -> bool {
     if p.current_token() == token {
         p.bump();
         true
@@ -104,17 +87,29 @@ fn if_token_bump(p: &mut LuaParser, token: LuaTokenKind) -> bool {
 }
 
 /// Check if a token is a statement start token
-fn is_statement_start_token(token: LuaTokenKind) -> bool {
+fn is_statement_start_token(token: PyTokenKind) -> bool {
     matches!(
         token,
-        LuaTokenKind::TkLocal
-            | LuaTokenKind::TkFunction
-            | LuaTokenKind::TkIf
-            | LuaTokenKind::TkFor
-            | LuaTokenKind::TkWhile
-            | LuaTokenKind::TkDo
-            | LuaTokenKind::TkName
-            | LuaTokenKind::TkReturn
-            | LuaTokenKind::TkBreak
+        PyTokenKind::TkDef
+            | PyTokenKind::TkClass
+            | PyTokenKind::TkIf
+            | PyTokenKind::TkFor
+            | PyTokenKind::TkWhile
+            | PyTokenKind::TkWith
+            | PyTokenKind::TkTry
+            | PyTokenKind::TkImport
+            | PyTokenKind::TkFrom
+            | PyTokenKind::TkName
+            | PyTokenKind::TkReturn
+            | PyTokenKind::TkBreak
+            | PyTokenKind::TkContinue
+            | PyTokenKind::TkPass
+            | PyTokenKind::TkRaise
+            | PyTokenKind::TkAssert
+            | PyTokenKind::TkDel
+            | PyTokenKind::TkGlobal
+            | PyTokenKind::TkNonlocal
+            | PyTokenKind::TkYield
+            | PyTokenKind::TkAsync
     )
 }

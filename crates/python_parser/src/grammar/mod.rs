@@ -1,7 +1,7 @@
 mod py;
 
 use crate::{parser::CompleteMarker, parser_error::LuaParseError};
-pub use py::parse_chunk;
+pub use py::parse_module;
 
 type ParseResult = Result<CompleteMarker, ParseFailReason>;
 type DocParseResult = Result<CompleteMarker, LuaParseError>;

@@ -1,14 +1,14 @@
 use super::{
-    py_doc_parser::LuaDocParser,
+    // py_doc_parser::LuaDocParser,
     marker::{MarkEvent, MarkerEventContainer},
     parser_config::ParserConfig,
 };
 use crate::text::Reader;
 use crate::{
-    LuaSyntaxTree, LuaTreeBuilder,
-    grammar::parse_chunk,
+    // LuaSyntaxTree, LuaTreeBuilder,
+    grammar::parse_module,
     kind::PyTokenKind,
-    lexer::{LuaLexer, PyTokenData},
+    lexer::{PyLexer, PyTokenData},
     parser_error::LuaParseError,
     text::SourceRange,
 };
@@ -45,11 +45,11 @@ impl MarkerEventContainer for LuaParser<'_> {
 
 impl<'a> LuaParser<'a> {
     #[allow(unused)]
-    pub fn parse(text: &'a str, config: ParserConfig) -> LuaSyntaxTree {
+    pub fn parse(text: &'a str, config: ParserConfig) -> PySyntaxTree {
         let mut errors: Vec<LuaParseError> = Vec::new();
         let tokens = {
             let mut lexer =
-                LuaLexer::new(Reader::new(text), config.lexer_config(), Some(&mut errors));
+                PyLexer::new(Reader::new(text), config.lexer_config(), Some(&mut errors));
             lexer.tokenize()
         };
 
@@ -64,18 +64,19 @@ impl<'a> LuaParser<'a> {
             errors: &mut errors,
         };
 
-        parse_chunk(&mut parser);
+        parse_module(&mut parser);
         let errors = parser.get_errors();
-        let root = {
-            let mut builder = LuaTreeBuilder::new(
-                parser.origin_text(),
-                parser.events,
-                parser.parse_config.node_cache(),
-            );
-            builder.build();
-            builder.finish()
-        };
-        LuaSyntaxTree::new(root, errors)
+        // let root = {
+        //     let mut builder = LuaTreeBuilder::new(
+        //         parser.origin_text(),
+        //         parser.events,
+        //         parser.parse_config.node_cache(),
+        //     );
+        //     builder.build();
+        //     builder.finish()
+        // };
+        // LuaSyntaxTree::new(root, errors)
+        todo!()
     }
 
     pub fn init(&mut self) {
@@ -205,7 +206,7 @@ impl<'a> LuaParser<'a> {
         for i in start..next_index {
             let token = &self.tokens[i];
             match token.kind {
-                PyTokenKind::TkShortComment | PyTokenKind::TkLongComment => {
+                PyTokenKind::TkComment => {
                     line_count = 0;
                     doc_tokens.push(*token);
                 }
@@ -293,7 +294,7 @@ impl<'a> LuaParser<'a> {
         }
 
         let tokens = &comment_tokens[..trivia_token_start];
-        LuaDocParser::parse(self, tokens);
+        // LuaDocParser::parse(self, tokens);
 
         for token in comment_tokens.iter().skip(trivia_token_start) {
             self.events.push(MarkEvent::EatToken {
@@ -319,8 +320,7 @@ impl<'a> LuaParser<'a> {
 fn is_trivia_kind(kind: PyTokenKind) -> bool {
     matches!(
         kind,
-        PyTokenKind::TkShortComment
-            | PyTokenKind::TkLongComment
+        PyTokenKind::TkComment
             | PyTokenKind::TkEndOfLine
             | PyTokenKind::TkWhitespace
             | PyTokenKind::TkShebang
@@ -335,8 +335,7 @@ fn is_invalid_kind(kind: PyTokenKind) -> bool {
             | PyTokenKind::TkWhitespace
             | PyTokenKind::TkShebang
             | PyTokenKind::TkEndOfLine
-            | PyTokenKind::TkShortComment
-            | PyTokenKind::TkLongComment
+            | PyTokenKind::TkComment
     )
 }
 
@@ -344,7 +343,7 @@ fn is_invalid_kind(kind: PyTokenKind) -> bool {
 mod tests {
     use crate::text::Reader;
     use crate::{
-        LuaParser, kind::PyTokenKind, lexer::LuaLexer, parser::ParserConfig,
+        LuaParser, kind::PyTokenKind, lexer::PyLexer, parser::ParserConfig,
         parser_error::LuaParseError,
     };
 
@@ -356,7 +355,7 @@ mod tests {
         show_tokens: bool,
     ) -> LuaParser<'a> {
         let tokens = {
-            let mut lexer = LuaLexer::new(Reader::new(text), config.lexer_config(), Some(errors));
+            let mut lexer = PyLexer::new(Reader::new(text), config.lexer_config(), Some(errors));
             lexer.tokenize()
         };
 

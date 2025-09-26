@@ -2,82 +2,85 @@ use super::PriorityTable;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum UnaryOperator {
-    OpNot,  // not
-    OpLen,  // #
-    OpUnm,  // -
-    OpBNot, // ~
-    OpNop,  // (empty)
+    OpNot,    // not
+    OpUPlus,  // +
+    OpUMinus, // -
+    OpInvert, // ~ (bitwise not)
+    OpNop,    // (empty)
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BinaryOperator {
-    OpAdd,    // +
-    OpSub,    // -
-    OpMul,    // *
-    OpDiv,    // /
-    OpIDiv,   // //
-    OpMod,    // %
-    OpPow,    // ^
-    OpBAnd,   // &
-    OpBOr,    // |
-    OpBXor,   // ~
-    OpShl,    // <<
-    OpShr,    // >>
-    OpConcat, // ..
-    OpLt,     // <
-    OpLe,     // <=
-    OpGt,     // >
-    OpGe,     // >=
-    OpEq,     // ==
-    OpNe,     // ~=
-    OpAnd,    // and
-    OpOr,     // or
-    OpNop,    // (empty)
+    // Arithmetic operators
+    OpAdd,     // +
+    OpSub,     // -
+    OpMul,     // *
+    OpDiv,     // /
+    OpFloorDiv,// //
+    OpMod,     // %
+    OpPow,     // **
+    OpMatMul,  // @ (matrix multiplication)
+    
+    // Bitwise operators
+    OpBitAnd,  // &
+    OpBitOr,   // |
+    OpBitXor,  // ^
+    OpLShift,  // <<
+    OpRShift,  // >>
+    
+    // Comparison operators
+    OpEq,      // ==
+    OpNotEq,   // !=
+    OpLt,      // <
+    OpLtE,     // <=
+    OpGt,      // >
+    OpGtE,     // >=
+    OpIs,      // is
+    OpIsNot,   // is not
+    OpIn,      // in
+    OpNotIn,   // not in
+    
+    // Logical operators
+    OpAnd,     // and
+    OpOr,      // or
+    
+    OpNop,     // (empty)
 }
 
-pub const PRIORITY: [PriorityTable; 21] = [
-    PriorityTable {
-        left: 10,
-        right: 10,
-    }, // OPR_ADD
-    PriorityTable {
-        left: 10,
-        right: 10,
-    }, // OPR_SUB
-    PriorityTable {
-        left: 11,
-        right: 11,
-    }, // OPR_MUL
-    PriorityTable {
-        left: 11,
-        right: 11,
-    }, // OPR_DIV
-    PriorityTable {
-        left: 11,
-        right: 11,
-    }, // OPR_IDIV
-    PriorityTable {
-        left: 11,
-        right: 11,
-    }, // OPR_MOD
-    PriorityTable {
-        left: 14,
-        right: 13,
-    }, // OPR_POW
-    PriorityTable { left: 6, right: 6 }, // OPR_BAND
-    PriorityTable { left: 4, right: 4 }, // OPR_BOR
-    PriorityTable { left: 5, right: 5 }, // OPR_BXOR
-    PriorityTable { left: 7, right: 7 }, // OPR_SHL
-    PriorityTable { left: 7, right: 7 }, // OPR_SHR
-    PriorityTable { left: 9, right: 8 }, // OPR_CONCAT
-    PriorityTable { left: 3, right: 3 }, // OPR_EQ
-    PriorityTable { left: 3, right: 3 }, // OPR_LT
-    PriorityTable { left: 3, right: 3 }, // OPR_LE
-    PriorityTable { left: 3, right: 3 }, // OPR_NE
-    PriorityTable { left: 3, right: 3 }, // OPR_GT
-    PriorityTable { left: 3, right: 3 }, // OPR_GE
-    PriorityTable { left: 2, right: 2 }, // OPR_AND
-    PriorityTable { left: 1, right: 1 }, // OPR_OR
+// Python operator precedence (higher number = higher precedence)
+pub const PRIORITY: [PriorityTable; 25] = [
+    // Arithmetic operators
+    PriorityTable { left: 10, right: 10 }, // OpAdd
+    PriorityTable { left: 10, right: 10 }, // OpSub
+    PriorityTable { left: 11, right: 11 }, // OpMul
+    PriorityTable { left: 11, right: 11 }, // OpDiv
+    PriorityTable { left: 11, right: 11 }, // OpFloorDiv
+    PriorityTable { left: 11, right: 11 }, // OpMod
+    PriorityTable { left: 14, right: 13 }, // OpPow (right associative)
+    PriorityTable { left: 11, right: 11 }, // OpMatMul
+    
+    // Bitwise operators
+    PriorityTable { left: 8, right: 8 },   // OpBitAnd
+    PriorityTable { left: 6, right: 6 },   // OpBitOr
+    PriorityTable { left: 7, right: 7 },   // OpBitXor
+    PriorityTable { left: 9, right: 9 },   // OpLShift
+    PriorityTable { left: 9, right: 9 },   // OpRShift
+    
+    // Comparison operators (all same precedence in Python)
+    PriorityTable { left: 5, right: 5 },   // OpEq
+    PriorityTable { left: 5, right: 5 },   // OpNotEq
+    PriorityTable { left: 5, right: 5 },   // OpLt
+    PriorityTable { left: 5, right: 5 },   // OpLtE
+    PriorityTable { left: 5, right: 5 },   // OpGt
+    PriorityTable { left: 5, right: 5 },   // OpGtE
+    PriorityTable { left: 5, right: 5 },   // OpIs
+    PriorityTable { left: 5, right: 5 },   // OpIsNot
+    PriorityTable { left: 5, right: 5 },   // OpIn
+    PriorityTable { left: 5, right: 5 },   // OpNotIn
+    
+    // Logical operators
+    PriorityTable { left: 4, right: 4 },   // OpAnd
+    PriorityTable { left: 3, right: 3 },   // OpOr
 ];
 
 impl BinaryOperator {

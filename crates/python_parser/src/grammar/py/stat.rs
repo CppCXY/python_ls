@@ -1,16 +1,37 @@
 use crate::{
-    LuaLanguageLevel,
     grammar::{ParseFailReason, ParseResult, py::is_statement_start_token},
-    kind::{LuaSyntaxKind, LuaTokenKind},
+    kind::{PySyntaxKind, PyTokenKind},
     parser::{CompleteMarker, LuaParser, MarkerEventContainer},
     parser_error::LuaParseError,
 };
 
 use super::{
     expect_token,
-    expr::{parse_closure_expr, parse_expr},
-    if_token_bump, parse_block,
+    expr::{parse_expr},
+    if_token_bump, parse_suite,
 };
+
+// Parse an indented block (suite in Python grammar)
+fn parse_suite(p: &mut LuaParser) -> ParseResult {
+    let m = p.mark(PySyntaxKind::Module); // Use Module as block equivalent
+    
+    // Expect INDENT
+    if p.current_token() == PyTokenKind::TkIndent {
+        p.bump();
+    }
+    
+    // Parse statements until DEDENT
+    while !matches!(p.current_token(), PyTokenKind::TkDedent | PyTokenKind::TkEof) {
+        parse_stat(p)?;
+    }
+    
+    // Expect DEDENT
+    if p.current_token() == PyTokenKind::TkDedent {
+        p.bump();
+    }
+    
+    Ok(m.complete(p))
+}
 
 /// Push expression parsing error with lazy error message generation
 fn push_expr_error_lazy<F>(p: &mut LuaParser, error_msg_fn: F)
@@ -27,7 +48,7 @@ where
 /// Generic keyword expectation with error recovery and lazy error message generation
 fn expect_keyword_with_recovery<F>(
     p: &mut LuaParser,
-    expected: LuaTokenKind,
+    expected: PyTokenKind,
     error_msg_fn: F,
 ) -> bool
 where
@@ -53,7 +74,7 @@ fn expect_end_keyword<F>(p: &mut LuaParser, start_range: crate::text::SourceRang
 where
     F: FnOnce() -> std::borrow::Cow<'static, str>,
 {
-    if p.current_token() == LuaTokenKind::TkEnd {
+    if p.current_token() == PyTokenKind::TkEnd {
         p.bump();
     } else {
         let error_msg = error_msg_fn();
@@ -69,26 +90,26 @@ where
 fn recover_to_block_end(p: &mut LuaParser) {
     let mut depth = 1;
 
-    while p.current_token() != LuaTokenKind::TkEof && depth > 0 {
+    while p.current_token() != PyTokenKind::TkEof && depth > 0 {
         match p.current_token() {
             // Nested structure starts
-            LuaTokenKind::TkIf
-            | LuaTokenKind::TkWhile
-            | LuaTokenKind::TkFor
-            | LuaTokenKind::TkDo
-            | LuaTokenKind::TkFunction => {
+            PyTokenKind::TkIf
+            | PyTokenKind::TkWhile
+            | PyTokenKind::TkFor
+            | PyTokenKind::TkDo
+            | PyTokenKind::TkFunction => {
                 depth += 1;
                 p.bump();
             }
             // Structure ends
-            LuaTokenKind::TkEnd => {
+            PyTokenKind::TkEnd => {
                 depth -= 1;
                 if depth == 0 {
                     p.bump(); // Consume the found 'end'
                 }
             }
             // Other possible recovery points
-            LuaTokenKind::TkElseIf | LuaTokenKind::TkElse => {
+            PyTokenKind::TkElseIf | PyTokenKind::TkElse => {
                 if depth == 1 {
                     // Found same-level elseif/else, can recover
                     break;
@@ -96,7 +117,7 @@ fn recover_to_block_end(p: &mut LuaParser) {
                 p.bump();
             }
             // Other control flow end markers
-            LuaTokenKind::TkUntil => {
+            PyTokenKind::TkUntil => {
                 depth -= 1;
                 if depth == 0 {
                     // This might be the end of repeat-until
@@ -112,8 +133,8 @@ fn recover_to_block_end(p: &mut LuaParser) {
 }
 
 /// Error recovery: skip to specified keywords
-fn recover_to_keywords(p: &mut LuaParser, keywords: &[LuaTokenKind]) {
-    while p.current_token() != LuaTokenKind::TkEof {
+fn recover_to_keywords(p: &mut LuaParser, keywords: &[PyTokenKind]) {
+    while p.current_token() != PyTokenKind::TkEof {
         if keywords.contains(&p.current_token()) {
             break;
         }
@@ -131,7 +152,7 @@ fn recover_to_keywords(p: &mut LuaParser, keywords: &[LuaTokenKind]) {
 fn parse_expr_list_impl(p: &mut LuaParser) -> Result<(), &'static str> {
     parse_expr(p).map_err(|_| "expected expression")?;
 
-    while p.current_token() == LuaTokenKind::TkComma {
+    while p.current_token() == PyTokenKind::TkComma {
         p.bump();
         parse_expr(p).map_err(|_| "expected expression after ','")?;
     }
@@ -143,7 +164,7 @@ fn parse_expr_list_impl(p: &mut LuaParser) -> Result<(), &'static str> {
 fn parse_variable_name_list(p: &mut LuaParser, support_attrib: bool) -> ParseResult {
     parse_local_name(p, support_attrib)?;
 
-    while p.current_token() == LuaTokenKind::TkComma {
+    while p.current_token() == PyTokenKind::TkComma {
         p.bump();
         match parse_local_name(p, support_attrib) {
             Ok(_) => {}
@@ -172,7 +193,7 @@ pub fn parse_stats(p: &mut LuaParser) {
 
                 let mut can_continue = false;
                 // error recover
-                while p.current_token() != LuaTokenKind::TkEof {
+                while p.current_token() != PyTokenKind::TkEof {
                     if is_statement_start_token(p.current_token()) {
                         can_continue = true;
                         break;
@@ -193,132 +214,140 @@ pub fn parse_stats(p: &mut LuaParser) {
 fn block_follow(p: &LuaParser) -> bool {
     matches!(
         p.current_token(),
-        LuaTokenKind::TkElse
-            | LuaTokenKind::TkElseIf
-            | LuaTokenKind::TkEnd
-            | LuaTokenKind::TkEof
-            | LuaTokenKind::TkUntil
+        PyTokenKind::TkElse
+            | PyTokenKind::TkElif
+            | PyTokenKind::TkExcept
+            | PyTokenKind::TkFinally
+            | PyTokenKind::TkEof
+            | PyTokenKind::TkDedent
     )
 }
 
 fn parse_stat(p: &mut LuaParser) -> ParseResult {
     let cm = match p.current_token() {
-        LuaTokenKind::TkIf => parse_if(p)?,
-        LuaTokenKind::TkWhile => parse_while(p)?,
-        LuaTokenKind::TkFor => parse_for(p)?,
-        LuaTokenKind::TkFunction => parse_function(p)?,
-        LuaTokenKind::TkLocal => parse_local(p)?,
-        LuaTokenKind::TkReturn => parse_return(p)?,
-        LuaTokenKind::TkBreak => parse_break(p)?,
-        LuaTokenKind::TkDo => parse_do(p)?,
-        LuaTokenKind::TkRepeat => parse_repeat(p)?,
-        LuaTokenKind::TkGoto => parse_goto(p)?,
-        LuaTokenKind::TkDbColon => parse_label_stat(p)?,
-        LuaTokenKind::TkSemicolon => parse_empty_stat(p)?,
-        _ => parse_assign_or_expr_or_global_stat(p)?,
+        // Python keywords
+        PyTokenKind::TkIf => parse_if(p)?,
+        PyTokenKind::TkWhile => parse_while(p)?,
+        PyTokenKind::TkFor => parse_for(p)?,
+        PyTokenKind::TkDef => parse_def(p)?,
+        PyTokenKind::TkClass => parse_class(p)?,
+        PyTokenKind::TkImport => parse_import(p)?,
+        PyTokenKind::TkFrom => parse_from_import(p)?,
+        PyTokenKind::TkReturn => parse_return(p)?,
+        PyTokenKind::TkBreak => parse_break(p)?,
+        PyTokenKind::TkContinue => parse_continue(p)?,
+        PyTokenKind::TkPass => parse_pass(p)?,
+        PyTokenKind::TkRaise => parse_raise(p)?,
+        PyTokenKind::TkTry => parse_try(p)?,
+        PyTokenKind::TkWith => parse_with(p)?,
+        PyTokenKind::TkAssert => parse_assert(p)?,
+        PyTokenKind::TkDel => parse_del(p)?,
+        PyTokenKind::TkGlobal => parse_global(p)?,
+        PyTokenKind::TkNonlocal => parse_nonlocal(p)?,
+        PyTokenKind::TkYield => parse_yield_stmt(p)?,
+        PyTokenKind::TkAsync => parse_async_stmt(p)?,
+        PyTokenKind::TkNewline => parse_newline(p)?,
+        _ => parse_assign_or_expr_stat(p)?,
     };
 
     Ok(cm)
 }
 
 fn parse_if(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::IfStat);
-    let if_start_range = p.current_token_range();
+    let m = p.mark(PySyntaxKind::IfStmt);
     p.bump(); // consume 'if'
 
     // Parse condition expression
     if parse_expr(p).is_err() {
-        push_expr_error_lazy(p, || t!("expected condition expression after 'if'"));
-        // 尝试恢复到 'then' 或语句开始
-        recover_to_keywords(p, &[LuaTokenKind::TkThen, LuaTokenKind::TkEnd]);
+        push_expr_error_lazy(p, || "expected condition expression after 'if'");
+        recover_to_keywords(p, &[PyTokenKind::TkColon, PyTokenKind::TkElif, PyTokenKind::TkElse]);
     }
 
-    // Expect 'then'
-    if !expect_keyword_with_recovery(p, LuaTokenKind::TkThen, || {
-        t!("expected 'then' after if condition")
+    // Expect ':'
+    if !expect_keyword_with_recovery(p, PyTokenKind::TkColon, || {
+        "expected ':' after if condition"
     }) {
-        // 如果没有找到 'then'，尝试恢复
-        recover_to_keywords(
-            p,
-            &[
-                LuaTokenKind::TkEnd,
-                LuaTokenKind::TkElseIf,
-                LuaTokenKind::TkElse,
-            ],
-        );
+        recover_to_keywords(p, &[PyTokenKind::TkElif, PyTokenKind::TkElse, PyTokenKind::TkIndent]);
     }
 
-    // 只有在找到合适的恢复点时才解析块
-    if !matches!(
-        p.current_token(),
-        LuaTokenKind::TkEnd | LuaTokenKind::TkElseIf | LuaTokenKind::TkElse | LuaTokenKind::TkEof
-    ) {
-        parse_block(p)?;
+    // Parse suite (indented block)
+    if p.current_token() == PyTokenKind::TkIndent {
+        parse_suite(p)?;
+    } else {
+        p.push_error(LuaParseError::syntax_error_from(
+            "expected indented block after ':'",
+            p.current_token_range(),
+        ));
     }
 
-    while p.current_token() == LuaTokenKind::TkElseIf {
-        parse_elseif_clause(p)?;
+    // Parse elif clauses
+    while p.current_token() == PyTokenKind::TkElif {
+        parse_elif_clause(p)?;
     }
 
-    if p.current_token() == LuaTokenKind::TkElse {
+    // Parse else clause
+    if p.current_token() == PyTokenKind::TkElse {
         parse_else_clause(p)?;
     }
 
-    // Use new end expectation function to associate error with 'if' keyword
-    expect_end_keyword(p, if_start_range, || {
-        t!("expected 'end' to close if statement")
-    });
-
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
-fn parse_elseif_clause(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::ElseIfClauseStat);
-    p.bump();
+fn parse_elif_clause(p: &mut LuaParser) -> ParseResult {
+    let m = p.mark(PySyntaxKind::ElifClause);
+    p.bump(); // consume 'elif'
 
     if parse_expr(p).is_err() {
-        push_expr_error_lazy(p, || t!("expected condition expression after 'elseif'"));
+        push_expr_error_lazy(p, || "expected condition expression after 'elif'");
     }
 
-    expect_keyword_with_recovery(p, LuaTokenKind::TkThen, || {
-        t!("expected 'then' after 'elseif' condition")
+    expect_keyword_with_recovery(p, PyTokenKind::TkColon, || {
+        "expected ':' after 'elif' condition"
     });
 
-    parse_block(p)?;
+    if p.current_token() == PyTokenKind::TkIndent {
+        parse_suite(p)?;
+    }
 
     Ok(m.complete(p))
 }
 
 fn parse_else_clause(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::ElseClauseStat);
-    p.bump();
-    parse_block(p)?;
+    let m = p.mark(PySyntaxKind::ElseClause);
+    p.bump(); // consume 'else'
+    
+    expect_keyword_with_recovery(p, PyTokenKind::TkColon, || {
+        "expected ':' after 'else'"
+    });
+
+    if p.current_token() == PyTokenKind::TkIndent {
+        parse_suite(p)?;
+    }
 
     Ok(m.complete(p))
 }
 
 fn parse_while(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::WhileStat);
+    let m = p.mark(PySyntaxKind::WhileStat);
     let while_start_range = p.current_token_range();
     p.bump(); // consume 'while'
 
     // Parse condition expression
     if parse_expr(p).is_err() {
         push_expr_error_lazy(p, || t!("expected condition expression after 'while'"));
-        recover_to_keywords(p, &[LuaTokenKind::TkDo, LuaTokenKind::TkEnd]);
+        recover_to_keywords(p, &[PyTokenKind::TkDo, PyTokenKind::TkEnd]);
     }
 
     // Expect 'do'
-    if !expect_keyword_with_recovery(p, LuaTokenKind::TkDo, || {
+    if !expect_keyword_with_recovery(p, PyTokenKind::TkDo, || {
         t!("expected 'do' after while condition")
     }) {
-        recover_to_keywords(p, &[LuaTokenKind::TkEnd]);
+        recover_to_keywords(p, &[PyTokenKind::TkEnd]);
     }
 
     // 只有在找到合适的恢复点时才解析块
-    if p.current_token() != LuaTokenKind::TkEnd && p.current_token() != LuaTokenKind::TkEof {
-        parse_block(p)?;
+    if p.current_token() != PyTokenKind::TkEnd && p.current_token() != PyTokenKind::TkEof {
+        parse_suite(p)?;
     }
 
     // Use new end expectation function to associate error with 'while' keyword
@@ -326,30 +355,30 @@ fn parse_while(p: &mut LuaParser) -> ParseResult {
         t!("expected 'end' to close while statement")
     });
 
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_do(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::DoStat);
+    let m = p.mark(PySyntaxKind::DoStat);
     let do_start_range = p.current_token_range();
     p.bump();
 
-    parse_block(p)?;
+    parse_suite(p)?;
 
     expect_end_keyword(p, do_start_range, || t!("expected 'end' after 'do' block"));
 
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_for(p: &mut LuaParser) -> ParseResult {
-    let mut m = p.mark(LuaSyntaxKind::ForStat);
+    let mut m = p.mark(PySyntaxKind::ForStat);
     let for_start_range = p.current_token_range();
     p.bump(); // consume 'for'
 
     // Expect variable name
-    if p.current_token() == LuaTokenKind::TkName {
+    if p.current_token() == PyTokenKind::TkName {
         p.bump();
     } else {
         p.push_error(LuaParseError::syntax_error_from(
@@ -360,17 +389,17 @@ fn parse_for(p: &mut LuaParser) -> ParseResult {
         recover_to_keywords(
             p,
             &[
-                LuaTokenKind::TkAssign,
-                LuaTokenKind::TkIn,
-                LuaTokenKind::TkComma,
-                LuaTokenKind::TkDo,
-                LuaTokenKind::TkEnd,
+                PyTokenKind::TkAssign,
+                PyTokenKind::TkIn,
+                PyTokenKind::TkComma,
+                PyTokenKind::TkDo,
+                PyTokenKind::TkEnd,
             ],
         );
     }
 
     match p.current_token() {
-        LuaTokenKind::TkAssign => {
+        PyTokenKind::TkAssign => {
             // Numeric for loop
             p.bump();
             // Start value
@@ -380,7 +409,7 @@ fn parse_for(p: &mut LuaParser) -> ParseResult {
                 });
             }
 
-            if p.current_token() == LuaTokenKind::TkComma {
+            if p.current_token() == PyTokenKind::TkComma {
                 p.bump();
             } else {
                 p.push_error(LuaParseError::syntax_error_from(
@@ -397,7 +426,7 @@ fn parse_for(p: &mut LuaParser) -> ParseResult {
             }
 
             // Optional step value
-            if p.current_token() == LuaTokenKind::TkComma {
+            if p.current_token() == PyTokenKind::TkComma {
                 p.bump();
                 if parse_expr(p).is_err() {
                     push_expr_error_lazy(p, || {
@@ -406,12 +435,12 @@ fn parse_for(p: &mut LuaParser) -> ParseResult {
                 }
             }
         }
-        LuaTokenKind::TkComma | LuaTokenKind::TkIn => {
+        PyTokenKind::TkComma | PyTokenKind::TkIn => {
             // Generic for loop
-            m.set_kind(p, LuaSyntaxKind::ForRangeStat);
-            while p.current_token() == LuaTokenKind::TkComma {
+            m.set_kind(p, PySyntaxKind::ForRangeStat);
+            while p.current_token() == PyTokenKind::TkComma {
                 p.bump();
-                if p.current_token() == LuaTokenKind::TkName {
+                if p.current_token() == PyTokenKind::TkName {
                     p.bump();
                 } else {
                     p.push_error(LuaParseError::syntax_error_from(
@@ -421,7 +450,7 @@ fn parse_for(p: &mut LuaParser) -> ParseResult {
                 }
             }
 
-            if p.current_token() == LuaTokenKind::TkIn {
+            if p.current_token() == PyTokenKind::TkIn {
                 p.bump();
             } else {
                 p.push_error(LuaParseError::syntax_error_from(
@@ -444,37 +473,37 @@ fn parse_for(p: &mut LuaParser) -> ParseResult {
     }
 
     // Expect 'do'
-    if !expect_keyword_with_recovery(p, LuaTokenKind::TkDo, || {
+    if !expect_keyword_with_recovery(p, PyTokenKind::TkDo, || {
         t!("expected 'do' in for statement")
     }) {
-        recover_to_keywords(p, &[LuaTokenKind::TkEnd]);
+        recover_to_keywords(p, &[PyTokenKind::TkEnd]);
     }
 
     // 只有在找到合适的恢复点时才解析块
-    if p.current_token() != LuaTokenKind::TkEnd && p.current_token() != LuaTokenKind::TkEof {
-        parse_block(p)?;
+    if p.current_token() != PyTokenKind::TkEnd && p.current_token() != PyTokenKind::TkEof {
+        parse_suite(p)?;
     }
 
     expect_end_keyword(p, for_start_range, || {
         t!("expected 'end' to close for statement")
     });
 
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_function(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::FuncStat);
+    let m = p.mark(PySyntaxKind::FuncStat);
     p.bump();
     parse_func_name(p)?;
     parse_closure_expr(p)?;
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_func_name(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::NameExpr);
-    match expect_token(p, LuaTokenKind::TkName) {
+    let m = p.mark(PySyntaxKind::NameExpr);
+    match expect_token(p, PyTokenKind::TkName) {
         Ok(_) => {}
         Err(_) => {
             p.push_error(LuaParseError::syntax_error_from(
@@ -486,12 +515,12 @@ fn parse_func_name(p: &mut LuaParser) -> ParseResult {
     }
 
     let cm =
-        if p.current_token() == LuaTokenKind::TkDot || p.current_token() == LuaTokenKind::TkColon {
+        if p.current_token() == PyTokenKind::TkDot || p.current_token() == PyTokenKind::TkColon {
             let mut cm = m.complete(p);
-            while p.current_token() == LuaTokenKind::TkDot {
-                let m = cm.precede(p, LuaSyntaxKind::IndexExpr);
+            while p.current_token() == PyTokenKind::TkDot {
+                let m = cm.precede(p, PySyntaxKind::IndexExpr);
                 p.bump();
-                match expect_token(p, LuaTokenKind::TkName) {
+                match expect_token(p, PyTokenKind::TkName) {
                     Ok(_) => {}
                     Err(_) => {
                         p.push_error(LuaParseError::syntax_error_from(
@@ -503,10 +532,10 @@ fn parse_func_name(p: &mut LuaParser) -> ParseResult {
                 cm = m.complete(p);
             }
 
-            if p.current_token() == LuaTokenKind::TkColon {
-                let m = cm.precede(p, LuaSyntaxKind::IndexExpr);
+            if p.current_token() == PyTokenKind::TkColon {
+                let m = cm.precede(p, PySyntaxKind::IndexExpr);
                 p.bump();
-                match expect_token(p, LuaTokenKind::TkName) {
+                match expect_token(p, PyTokenKind::TkName) {
                     Ok(_) => {}
                     Err(_) => {
                         p.push_error(LuaParseError::syntax_error_from(
@@ -527,13 +556,13 @@ fn parse_func_name(p: &mut LuaParser) -> ParseResult {
 }
 
 fn parse_local(p: &mut LuaParser) -> ParseResult {
-    let mut m = p.mark(LuaSyntaxKind::LocalStat);
+    let mut m = p.mark(PySyntaxKind::LocalStat);
     p.bump(); // consume 'local'
 
     match p.current_token() {
-        LuaTokenKind::TkFunction => {
+        PyTokenKind::TkFunction => {
             p.bump();
-            m.set_kind(p, LuaSyntaxKind::LocalFuncStat);
+            m.set_kind(p, PySyntaxKind::LocalFuncStat);
 
             match parse_local_name(p, false) {
                 Ok(_) => {}
@@ -555,7 +584,7 @@ fn parse_local(p: &mut LuaParser) -> ParseResult {
                 }
             }
         }
-        LuaTokenKind::TkName => {
+        PyTokenKind::TkName => {
             parse_variable_name_list(p, true)?;
 
             // 可选的初始化表达式
@@ -566,7 +595,7 @@ fn parse_local(p: &mut LuaParser) -> ParseResult {
                 }
             }
         }
-        LuaTokenKind::TkLt => {
+        PyTokenKind::TkLt => {
             if p.parse_config.level >= LuaLanguageLevel::Lua55 {
                 match parse_attrib(p) {
                     Ok(_) => {}
@@ -610,13 +639,13 @@ fn parse_local(p: &mut LuaParser) -> ParseResult {
         }
     }
 
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_local_name(p: &mut LuaParser, support_attrib: bool) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::LocalName);
-    match expect_token(p, LuaTokenKind::TkName) {
+    let m = p.mark(PySyntaxKind::LocalName);
+    match expect_token(p, PyTokenKind::TkName) {
         Ok(_) => {}
         Err(_) => {
             p.push_error(LuaParseError::syntax_error_from(
@@ -625,7 +654,7 @@ fn parse_local_name(p: &mut LuaParser, support_attrib: bool) -> ParseResult {
             ));
         }
     }
-    if support_attrib && p.current_token() == LuaTokenKind::TkLt {
+    if support_attrib && p.current_token() == PyTokenKind::TkLt {
         parse_attrib(p)?;
     }
 
@@ -633,10 +662,10 @@ fn parse_local_name(p: &mut LuaParser, support_attrib: bool) -> ParseResult {
 }
 
 fn parse_attrib(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::Attribute);
+    let m = p.mark(PySyntaxKind::Attribute);
     let range = p.current_token_range();
     p.bump();
-    match expect_token(p, LuaTokenKind::TkName) {
+    match expect_token(p, PyTokenKind::TkName) {
         Ok(_) => {}
         Err(_) => {
             p.push_error(LuaParseError::syntax_error_from(
@@ -645,7 +674,7 @@ fn parse_attrib(p: &mut LuaParser) -> ParseResult {
             ));
         }
     }
-    match expect_token(p, LuaTokenKind::TkGt) {
+    match expect_token(p, PyTokenKind::TkGt) {
         Ok(_) => {}
         Err(_) => {
             p.push_error(LuaParseError::syntax_error_from(
@@ -668,31 +697,31 @@ fn parse_attrib(p: &mut LuaParser) -> ParseResult {
 }
 
 fn parse_return(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::ReturnStat);
+    let m = p.mark(PySyntaxKind::ReturnStat);
     p.bump();
     if !block_follow(p)
-        && p.current_token() != LuaTokenKind::TkSemicolon
+        && p.current_token() != PyTokenKind::TkSemicolon
         && parse_expr_list_impl(p).is_err()
     {
         push_expr_error_lazy(p, || t!("expected expression in return statement"));
     }
 
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_break(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::BreakStat);
+    let m = p.mark(PySyntaxKind::BreakStat);
     p.bump();
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_repeat(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::RepeatStat);
+    let m = p.mark(PySyntaxKind::RepeatStat);
     p.bump();
-    parse_block(p)?;
-    match expect_token(p, LuaTokenKind::TkUntil) {
+    parse_suite(p)?;
+    match expect_token(p, PyTokenKind::TkUntil) {
         Ok(_) => {}
         Err(_) => {
             p.push_error(LuaParseError::syntax_error_from(
@@ -704,14 +733,14 @@ fn parse_repeat(p: &mut LuaParser) -> ParseResult {
     if parse_expr(p).is_err() {
         push_expr_error_lazy(p, || t!("expected condition expression after 'until'"));
     }
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_goto(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::GotoStat);
+    let m = p.mark(PySyntaxKind::GotoStat);
     p.bump();
-    match expect_token(p, LuaTokenKind::TkName) {
+    match expect_token(p, PyTokenKind::TkName) {
         Ok(_) => {}
         Err(_) => {
             p.push_error(LuaParseError::syntax_error_from(
@@ -720,26 +749,26 @@ fn parse_goto(p: &mut LuaParser) -> ParseResult {
             ));
         }
     }
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_empty_stat(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::EmptyStat);
+    let m = p.mark(PySyntaxKind::EmptyStat);
     p.bump();
     Ok(m.complete(p))
 }
 
 fn try_parse_global_stat(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::GlobalStat);
+    let m = p.mark(PySyntaxKind::GlobalStat);
     match p.peek_next_token() {
-        LuaTokenKind::TkName => {
-            p.set_current_token_kind(LuaTokenKind::TkGlobal);
+        PyTokenKind::TkName => {
+            p.set_current_token_kind(PyTokenKind::TkGlobal);
             p.bump();
             parse_variable_name_list(p, true)?;
         }
-        LuaTokenKind::TkLt => {
-            p.set_current_token_kind(LuaTokenKind::TkGlobal);
+        PyTokenKind::TkLt => {
+            p.set_current_token_kind(PyTokenKind::TkGlobal);
             p.bump();
             parse_attrib(p)?;
             parse_variable_name_list(p, true)?;
@@ -749,12 +778,12 @@ fn try_parse_global_stat(p: &mut LuaParser) -> ParseResult {
         }
     }
 
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_assign_or_expr_or_global_stat(p: &mut LuaParser) -> ParseResult {
-    if p.parse_config.level >= LuaLanguageLevel::Lua55 && p.current_token() == LuaTokenKind::TkName
+    if p.parse_config.level >= LuaLanguageLevel::Lua55 && p.current_token() == PyTokenKind::TkName
     {
         let token_text = p.current_token_text();
         if token_text == "global" {
@@ -765,7 +794,7 @@ fn parse_assign_or_expr_or_global_stat(p: &mut LuaParser) -> ParseResult {
         }
     }
 
-    let mut m = p.mark(LuaSyntaxKind::AssignStat);
+    let mut m = p.mark(PySyntaxKind::AssignStat);
     let range = p.current_token_range();
 
     // 解析第一个表达式
@@ -783,20 +812,20 @@ fn parse_assign_or_expr_or_global_stat(p: &mut LuaParser) -> ParseResult {
     // 检查是否是函数调用语句
     if matches!(
         cm.kind,
-        LuaSyntaxKind::CallExpr
-            | LuaSyntaxKind::AssertCallExpr
-            | LuaSyntaxKind::ErrorCallExpr
-            | LuaSyntaxKind::RequireCallExpr
-            | LuaSyntaxKind::TypeCallExpr
-            | LuaSyntaxKind::SetmetatableCallExpr
+        PySyntaxKind::CallExpr
+            | PySyntaxKind::AssertCallExpr
+            | PySyntaxKind::ErrorCallExpr
+            | PySyntaxKind::RequireCallExpr
+            | PySyntaxKind::TypeCallExpr
+            | PySyntaxKind::SetmetatableCallExpr
     ) {
-        m.set_kind(p, LuaSyntaxKind::CallExprStat);
-        if_token_bump(p, LuaTokenKind::TkSemicolon);
+        m.set_kind(p, PySyntaxKind::CallExprStat);
+        if_token_bump(p, PyTokenKind::TkSemicolon);
         return Ok(m.complete(p));
     }
 
     // 验证左值
-    if !matches!(cm.kind, LuaSyntaxKind::NameExpr | LuaSyntaxKind::IndexExpr) {
+    if !matches!(cm.kind, PySyntaxKind::NameExpr | PySyntaxKind::IndexExpr) {
         p.push_error(LuaParseError::syntax_error_from(
             &t!("invalid left-hand side in assignment (expected variable or table index)"),
             range,
@@ -806,13 +835,13 @@ fn parse_assign_or_expr_or_global_stat(p: &mut LuaParser) -> ParseResult {
     }
 
     // 解析更多左值（如果有逗号）
-    while p.current_token() == LuaTokenKind::TkComma {
+    while p.current_token() == PyTokenKind::TkComma {
         p.bump();
         match parse_expr(p) {
             Ok(expr_cm) => {
                 if !matches!(
                     expr_cm.kind,
-                    LuaSyntaxKind::NameExpr | LuaSyntaxKind::IndexExpr
+                    PySyntaxKind::NameExpr | PySyntaxKind::IndexExpr
                 ) {
                     p.push_error(LuaParseError::syntax_error_from(
                         &t!(
@@ -849,14 +878,14 @@ fn parse_assign_or_expr_or_global_stat(p: &mut LuaParser) -> ParseResult {
         return Err(ParseFailReason::UnexpectedToken);
     }
 
-    if_token_bump(p, LuaTokenKind::TkSemicolon);
+    if_token_bump(p, PyTokenKind::TkSemicolon);
     Ok(m.complete(p))
 }
 
 fn parse_label_stat(p: &mut LuaParser) -> ParseResult {
-    let m = p.mark(LuaSyntaxKind::LabelStat);
+    let m = p.mark(PySyntaxKind::LabelStat);
     p.bump();
-    match expect_token(p, LuaTokenKind::TkName) {
+    match expect_token(p, PyTokenKind::TkName) {
         Ok(_) => {}
         Err(_) => {
             p.push_error(LuaParseError::syntax_error_from(
@@ -865,7 +894,7 @@ fn parse_label_stat(p: &mut LuaParser) -> ParseResult {
             ));
         }
     }
-    match expect_token(p, LuaTokenKind::TkDbColon) {
+    match expect_token(p, PyTokenKind::TkDbColon) {
         Ok(_) => {}
         Err(_) => {
             p.push_error(LuaParseError::syntax_error_from(

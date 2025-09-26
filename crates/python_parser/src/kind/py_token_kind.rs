@@ -4,159 +4,129 @@ use core::fmt;
 #[repr(u16)]
 pub enum PyTokenKind {
     None,
-    // KeyWord
-    TkAnd,
-    TkBreak,
-    TkDo,
-    TkElse,
-    TkElseIf,
-    TkEnd,
-    TkFalse,
-    TkFor,
-    TkFunction,
-    TkGoto,
-    TkIf,
-    TkIn,
-    TkLocal,
-    TkNil,
-    TkNot,
-    TkOr,
-    TkRepeat,
-    TkReturn,
-    TkThen,
-    TkTrue,
-    TkUntil,
-    TkWhile,
-    TkGlobal, // global *
+    // Python Keywords
+    TkAnd,       // and
+    TkAs,        // as
+    TkAssert,    // assert
+    TkAsync,     // async
+    TkAwait,     // await
+    TkBreak,     // break
+    TkClass,     // class
+    TkContinue,  // continue
+    TkDef,       // def
+    TkDel,       // del
+    TkElif,      // elif
+    TkElse,      // else
+    TkExcept,    // except
+    TkFalse,     // False
+    TkFinally,   // finally
+    TkFor,       // for
+    TkFrom,      // from
+    TkGlobal,    // global
+    TkIf,        // if
+    TkImport,    // import
+    TkIn,        // in
+    TkIs,        // is
+    TkLambda,    // lambda
+    TkNonlocal,  // nonlocal
+    TkNone,      // None
+    TkNot,       // not
+    TkOr,        // or
+    TkPass,      // pass
+    TkRaise,     // raise
+    TkReturn,    // return
+    TkTry,       // try
+    TkTrue,      // True
+    TkWhile,     // while
+    TkWith,      // with
+    TkYield,     // yield
 
     TkWhitespace, // whitespace
     TkEndOfLine,  // end of line
+    TkNewline,    // \n
+    
+    // Operators
     TkPlus,       // +
     TkMinus,      // -
     TkMul,        // *
     TkDiv,        // /
-    TkIDiv,       // //
-    TkDot,        // .
-    TkConcat,     // ..
-    TkDots,       // ...
-    TkComma,      // ,
-    TkAssign,     // =
-    TkEq,         // ==
-    TkGe,         // >=
-    TkLe,         // <=
-    TkNe,         // ~=
-    TkShl,        // <<
-    TkShr,        // >>
-    TkLt,         // <
-    TkGt,         // >
+    TkFloorDiv,   // //
     TkMod,        // %
-    TkPow,        // ^
-    TkLen,        // #
+    TkPow,        // **
+    TkMatMul,     // @ (matrix multiplication)
+    
+    // Bitwise operators
     TkBitAnd,     // &
     TkBitOr,      // |
-    TkBitXor,     // ~
-    TkColon,      // :
-    TkDbColon,    // ::
-    TkSemicolon,  // ;
-
-    // Non-standard assignment operators
+    TkBitXor,     // ^
+    TkBitNot,     // ~
+    TkShl,        // <<
+    TkShr,        // >>
+    
+    // Comparison operators
+    TkEq,         // ==
+    TkNe,         // !=
+    TkLt,         // <
+    TkLe,         // <=
+    TkGt,         // >
+    TkGe,         // >=
+    
+    // Assignment operators
+    TkAssign,     // =
     TkPlusAssign,        // +=
     TkMinusAssign,       // -=
-    TkStarAssign,        // *=
-    TkSlashAssign,       // /=
-    TkPercentAssign,     // %=
-    TkCaretAssign,       // ^=
-    TkDoubleSlashAssign, // //=
-    TkPipeAssign,        // |=
-    TkAmpAssign,         // &=
-    TkShiftLeftAssign,   // <<=
-    TkShiftRightAssign,  // >>=
+    TkMulAssign,         // *=
+    TkDivAssign,         // /=
+    TkFloorDivAssign,    // //=
+    TkModAssign,         // %=
+    TkPowAssign,         // **=
+    TkMatMulAssign,      // @=
+    TkBitAndAssign,      // &=
+    TkBitOrAssign,       // |=
+    TkBitXorAssign,      // ^=
+    TkShlAssign,         // <<=
+    TkShrAssign,         // >>=
+    
+    // Delimiters
+    TkDot,        // .
+    TkComma,      // ,
+    TkColon,      // :
+    TkSemicolon,  // ;
+    TkArrow,      // ->
 
+
+    // Brackets
     TkLeftBracket,  // [
     TkRightBracket, // ]
     TkLeftParen,    // (
     TkRightParen,   // )
     TkLeftBrace,    // {
     TkRightBrace,   // }
-    TkComplex,      // complex
-    TkInt,          // int
-    TkFloat,        // float
-
-    TkName,         // name
-    TkString,       // string
-    TkLongString,   // long string
-    TkShortComment, // short comment
-    TkLongComment,  // long comment
+    
+    // Literals
+    TkInt,          // integer literal
+    TkFloat,        // float literal
+    TkComplex,      // complex literal
+    TkString,       // string literal
+    TkBytes,        // bytes literal
+    TkFString,      // f-string literal
+    TkRawString,    // raw string literal
+    
+    // Identifiers and Names
+    TkName,         // identifier/name
+    TkIndent,       // indentation
+    TkDedent,       // dedentation
+    
+    // Comments
+    TkComment,      // # comment
     TkShebang,      // shebang
-    TkEof,          // eof
+    
+    // Special
+    TkEof,          // end of file
+    TkUnknown,      // unknown token
+    TkErrorToken,   // error token
 
-    TkUnknown, // unknown
 
-    // doc
-    TkNormalStart,      // -- or ---
-    TkLongCommentStart, // --[[
-    TkDocLongStart,     // --[[@
-    TkDocStart,         // ---@
-    TKDocTriviaStart,   // --------------
-    TkDocTrivia,        // other can not parsed
-    TkLongCommentEnd,   // ]] or ]===]
-    TKNonStdComment,    // // comment, non-standard lua comment
-
-    // tag
-    TkTagClass,     // class
-    TkTagEnum,      // enum
-    TkTagInterface, // interface
-    TkTagAlias,     // alias
-    TkTagModule,    // module
-
-    TkTagField,      // field
-    TkTagType,       // type
-    TkTagParam,      // param
-    TkTagReturn,     // return
-    TkTagOverload,   // overload
-    TkTagGeneric,    // generic
-    TkTagSee,        // see
-    TkTagDeprecated, // deprecated
-    TkTagAsync,      // async
-    TkTagCast,       // cast
-    TkTagOther,      // other
-    TkTagVisibility, // public private protected package
-    TkTagReadonly,   // readonly
-    TkTagDiagnostic, // diagnostic
-    TkTagMeta,       // meta
-    TkTagVersion,    // version
-    TkTagAs,         // as
-    TkTagNodiscard,  // nodiscard
-    TkTagOperator,   // operator
-    TkTagMapping,    // mapping
-    TkTagNamespace,  // namespace
-    TkTagUsing,      // using
-    TkTagSource,     // source
-    TkTagReturnCast, // return cast
-    TkTagExport,     // export
-    TkLanguage,      // language
-
-    TkDocOr,              // |
-    TkDocAnd,             // &
-    TkDocKeyOf,           // keyof
-    TkDocExtends,         // extends
-    TkDocAs,              // as
-    TkDocIn,              // in
-    TkDocInfer,           // infer
-    TkDocContinue,        // ---
-    TkDocContinueOr,      // ---| or ---|+  or ---|>
-    TkDocDetail,          // a description
-    TkDocQuestion,        // '?'
-    TkDocVisibility,      // public private protected package
-    TkDocReadonly,        // readonly
-    TkAt,                 // '@', invalid lua token, but for postfix completion
-    TkDocVersionNumber,   // version number
-    TkStringTemplateType, // type template
-    TkDocMatch,           // =
-    TKDocPath,            // path
-    TkDocRegion,          // region
-    TkDocEndRegion,       // endregion
-    TkDocSeeContent,      // see content
 }
 
 impl fmt::Display for PyTokenKind {
@@ -170,27 +140,40 @@ impl PyTokenKind {
         matches!(
             self,
             PyTokenKind::TkAnd
+                | PyTokenKind::TkAs
+                | PyTokenKind::TkAssert
+                | PyTokenKind::TkAsync
+                | PyTokenKind::TkAwait
                 | PyTokenKind::TkBreak
-                | PyTokenKind::TkDo
+                | PyTokenKind::TkClass
+                | PyTokenKind::TkContinue
+                | PyTokenKind::TkDef
+                | PyTokenKind::TkDel
+                | PyTokenKind::TkElif
                 | PyTokenKind::TkElse
-                | PyTokenKind::TkElseIf
-                | PyTokenKind::TkEnd
+                | PyTokenKind::TkExcept
                 | PyTokenKind::TkFalse
+                | PyTokenKind::TkFinally
                 | PyTokenKind::TkFor
-                | PyTokenKind::TkFunction
-                | PyTokenKind::TkGoto
+                | PyTokenKind::TkFrom
+                | PyTokenKind::TkGlobal
                 | PyTokenKind::TkIf
+                | PyTokenKind::TkImport
                 | PyTokenKind::TkIn
-                | PyTokenKind::TkLocal
-                | PyTokenKind::TkNil
+                | PyTokenKind::TkIs
+                | PyTokenKind::TkLambda
+                | PyTokenKind::TkNonlocal
+                | PyTokenKind::TkNone
                 | PyTokenKind::TkNot
                 | PyTokenKind::TkOr
-                | PyTokenKind::TkRepeat
+                | PyTokenKind::TkPass
+                | PyTokenKind::TkRaise
                 | PyTokenKind::TkReturn
-                | PyTokenKind::TkThen
+                | PyTokenKind::TkTry
                 | PyTokenKind::TkTrue
-                | PyTokenKind::TkUntil
                 | PyTokenKind::TkWhile
+                | PyTokenKind::TkWith
+                | PyTokenKind::TkYield
         )
     }
 
@@ -200,15 +183,17 @@ impl PyTokenKind {
             PyTokenKind::TkAssign
                 | PyTokenKind::TkPlusAssign
                 | PyTokenKind::TkMinusAssign
-                | PyTokenKind::TkStarAssign
-                | PyTokenKind::TkSlashAssign
-                | PyTokenKind::TkPercentAssign
-                | PyTokenKind::TkCaretAssign
-                | PyTokenKind::TkDoubleSlashAssign
-                | PyTokenKind::TkPipeAssign
-                | PyTokenKind::TkAmpAssign
-                | PyTokenKind::TkShiftLeftAssign
-                | PyTokenKind::TkShiftRightAssign
+                | PyTokenKind::TkMulAssign
+                | PyTokenKind::TkDivAssign
+                | PyTokenKind::TkFloorDivAssign
+                | PyTokenKind::TkModAssign
+                | PyTokenKind::TkPowAssign
+                | PyTokenKind::TkMatMulAssign
+                | PyTokenKind::TkBitAndAssign
+                | PyTokenKind::TkBitOrAssign
+                | PyTokenKind::TkBitXorAssign
+                | PyTokenKind::TkShlAssign
+                | PyTokenKind::TkShrAssign
         )
     }
 }

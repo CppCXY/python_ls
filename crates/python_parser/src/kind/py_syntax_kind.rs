@@ -2,138 +2,100 @@
 #[repr(u16)]
 pub enum PySyntaxKind {
     None,
-    // source
-    Chunk,
+    
+    // Root
+    Module,
+    Suite,           // a block of statements (indented)
+    
+    // Statements
+    ExprStmt,        // expression statement
+    AssignStmt,      // assignment statement
+    AnnAssignStmt,   // annotated assignment
+    AugAssignStmt,   // augmented assignment (+=, -=, etc.)
+    RaiseStmt,       // raise statement
+    AssertStmt,      // assert statement
+    DeleteStmt,      // del statement
+    PassStmt,        // pass statement
+    BreakStmt,       // break statement
+    ContinueStmt,    // continue statement
+    ReturnStmt,      // return statement
+    YieldStmt,       // yield statement
+    GlobalStmt,      // global statement
+    NonlocalStmt,    // nonlocal statement
+    ImportStmt,      // import statement
+    ImportFromStmt,  // from ... import statement
+    
+    // Compound statements
+    IfStmt,          // if statement
+    ElifClause,      // elif clause
+    ElseClause,      // else clause
+    WhileStmt,       // while statement
+    ForStmt,         // for statement
+    WithStmt,        // with statement
+    TryStmt,         // try statement
+    ExceptClause,    // except clause
+    FinallyClause,   // finally clause
+    
+    // Function and class definitions
+    FuncDef,         // function definition
+    AsyncFuncDef,    // async function definition
+    ClassDef,        // class definition
+    
+    // Type annotations
+    TypeAlias,       // type alias
+    TypeAnnotation,  // type annotation
 
-    // block
-    Block,
+    // Expressions
+    NameExpr,        // identifier/name
+    LiteralExpr,     // literal values (int, float, string, etc.)
+    ParenExpr,       // parenthesized expression
+    TupleExpr,       // tuple expression
+    ListExpr,        // list expression
+    DictExpr,        // dictionary expression
+    SetExpr,         // set expression
+    
+    // Unary and binary operations
+    UnaryExpr,       // unary operations (+x, -x, not x, ~x)
+    BinaryExpr,      // binary operations (x + y, x and y, etc.)
+    BoolOpExpr,      // boolean operations (and, or)
+    CompareExpr,     // comparisons (x < y, x == y, etc.)
+    
+    // Function and method calls
+    CallExpr,        // function call
+    MethodCallExpr,  // method call
+    
+    // Subscripting and attribute access
+    SubscriptExpr,   // x[y]
+    AttributeExpr,   // x.y
+    SliceExpr,       // x[start:stop:step]
+    
+    // Lambda and comprehensions
+    LambdaExpr,      // lambda expression
+    ListCompExpr,    // list comprehension
+    DictCompExpr,    // dictionary comprehension
+    SetCompExpr,     // set comprehension
+    GeneratorExpr,   // generator expression
+    
+    // Conditional and special expressions
+    IfExpr,          // conditional expression (x if condition else y)
+    YieldExpr,       // yield expression
+    YieldFromExpr,   // yield from expression
+    AwaitExpr,       // await expression
+    StarredExpr,     // *expression
+    
+    // Other nodes
+    Parameter,       // function parameter
+    Parameters,      // parameter list
+    Arguments,       // argument list
+    Keyword,         // keyword argument
+    Alias,           // import alias (as clause)
+    Decorator,       // decorator
+    
+    // Comments and whitespace
+    Comment,         // comment
+    Newline,         // newline
+    Indent,          // indentation
+    Dedent,          // dedentation
 
-    // statements
-    EmptyStat,
-    LocalStat,
-    LocalFuncStat,
-    IfStat,
-    ElseIfClauseStat,
-    ElseClauseStat,
-    WhileStat,
-    DoStat,
-    ForStat,
-    ForRangeStat,
-    RepeatStat,
-    FuncStat,
-    LabelStat,
-    BreakStat,
-    ReturnStat,
-    GotoStat,
-    CallExprStat,
-    AssignStat,
-    GlobalStat,
-    UnknownStat,
-
-    // expressions
-    ParenExpr,
-    LiteralExpr,
-    ClosureExpr,
-    UnaryExpr,
-    BinaryExpr,
-    TableArrayExpr,       // { a, b, c}
-    TableObjectExpr,      // { a = 1, b = 2, c = 3}
-    TableEmptyExpr,       // {}
-    CallExpr,             // a()
-    RequireCallExpr,      // require('a')
-    ErrorCallExpr,        // error('a')
-    AssertCallExpr,       // assert(a)
-    TypeCallExpr,         // type(a)
-    SetmetatableCallExpr, // setmetatable(a, b)
-    IndexExpr,
-    NameExpr,
-
-    // other
-    LocalName,
-    ParamName,
-    ParamList,
-    CallArgList,
-    TableFieldAssign,
-    TableFieldValue,
-    Attribute,
-
-    // comment
-    Comment,
-
-    // doc tag
-    DocTagClass,
-    DocTagEnum,
-    DocTagInterface,
-    DocTagAlias,
-    DocTagField,
-    DocTagType,
-    DocTagParam,
-    DocTagReturn,
-    DocTagGeneric,
-    DocTagSee,
-    DocTagDeprecated,
-    DocTagCast,
-    DocTagOverload,
-    DocTagAsync,
-    DocTagVisibility,
-    DocTagMeta,
-    DocTagOther,
-    DocTagDiagnostic,
-    DocTagVersion,
-    DocTagAs,
-    DocTagNodiscard,
-    DocTagOperator,
-    DocTagModule,
-    DocTagMapping,
-    DocTagNamespace,
-    DocTagUsing,
-    DocTagSource,
-    DocTagReadonly,
-    DocTagReturnCast,
-    DocTagExport,
-    DocTagLanguage,
-
-    // doc Type
-    TypeArray,          // baseType []
-    TypeUnary,          // keyof type
-    TypeBinary,         // aType | bType, aType & bType, aType extends bType, aType in bType
-    TypeConditional,    // <conditionType> and <trueType> or <falseType>
-    TypeFun,            // fun(<paramList>): returnType
-    TypeGeneric,        // name<typeList>
-    TypeTuple,          // [typeList]
-    TypeObject, // { a: aType, b: bType } or { [1]: aType, [2]: bType } or { a: aType, b: bType, [number]: string }
-    TypeLiteral, // "string" or <integer> or true or false
-    TypeName,   // name
-    TypeVariadic, // type...
-    TypeNullable, // <Type>?
-    TypeStringTemplate, // prefixName.`T`
-    TypeMultiLineUnion, // | simple type # description
-
-    // follow donot support now
-    TypeMatch,
-    TypeIndexAccess, // type[keyType]
-    TypeMapped,      // { [p in KeyType]+? : ValueType }
-
-    // doc other
-    DocObjectField,
-    DocContinueOrField,
-    // doc parameter
-    DocTypedParameter,
-    DocNamedReturnType,
-    DocGenericParameter,
-    DocGenericDeclareList,
-    DocDiagnosticNameList,
-    DocTypeList,
-    DocAttribute,
-    DocOpType,             // +<type>, -<type>, +?
-    DocMappedKeys,         // [p in KeyType]?
-    DocEnumFieldList,      // ---| <EnumField>
-    DocEnumField, // <string> # description or <integer> # description or <name> # description
-    DocOneLineField, // <type> # description
-    DocDiagnosticCodeList, // unused-local, undefined-global ...
-    // start with '#' or '@'
-    DocDescription,
-
-    // [<|>] [<framework>] <version>, <version> can be '5.1', '5.2', '5.3', '5.4', 'JIT', <framework> can be 'openresty'
-    DocVersion,
+    UnknownStat,    // unknown statement
 }

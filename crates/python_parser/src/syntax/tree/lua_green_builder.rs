@@ -65,7 +65,7 @@ impl LuaGreenNodeBuilder<'_> {
         let mut child_end = self.children.len() - 1;
         let child_count = self.children.len();
         let green = match parent_kind {
-            PySyntaxKind::Block | PySyntaxKind::Chunk => {
+            PySyntaxKind::Suite | PySyntaxKind::Chunk => {
                 while child_start > 0 {
                     if self.is_trivia(self.children[child_start - 1]) {
                         child_start -= 1;

@@ -56,29 +56,29 @@ impl fmt::Display for PyVersionNumber {
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum LuaVersionCondition {
+pub enum PyVersionCondition {
     Eq(PyVersionNumber),
     Gte(PyVersionNumber),
     Lte(PyVersionNumber),
 }
 
 #[allow(unused)]
-impl LuaVersionCondition {
+impl PyVersionCondition {
     pub fn check(&self, version: &PyVersionNumber) -> bool {
         match self {
-            LuaVersionCondition::Eq(v) => version == v,
-            LuaVersionCondition::Gte(v) => version >= v,
-            LuaVersionCondition::Lte(v) => version <= v,
+            PyVersionCondition::Eq(v) => version == v,
+            PyVersionCondition::Gte(v) => version >= v,
+            PyVersionCondition::Lte(v) => version <= v,
         }
     }
 }
 
-impl fmt::Display for LuaVersionCondition {
+impl fmt::Display for PyVersionCondition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LuaVersionCondition::Eq(v) => write!(f, "{}", v),
-            LuaVersionCondition::Gte(v) => write!(f, ">= {}", v),
-            LuaVersionCondition::Lte(v) => write!(f, "<= {}", v),
+            PyVersionCondition::Eq(v) => write!(f, "{}", v),
+            PyVersionCondition::Gte(v) => write!(f, ">= {}", v),
+            PyVersionCondition::Lte(v) => write!(f, "<= {}", v),
         }
     }
 }

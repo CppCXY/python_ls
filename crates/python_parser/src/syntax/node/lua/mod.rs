@@ -65,14 +65,14 @@ impl LuaAstNode for LuaBlock {
     where
         Self: Sized,
     {
-        kind == PySyntaxKind::Block
+        kind == PySyntaxKind::Suite
     }
 
     fn cast(syntax: LuaSyntaxNode) -> Option<Self>
     where
         Self: Sized,
     {
-        if syntax.kind() == PySyntaxKind::Block.into() {
+        if syntax.kind() == PySyntaxKind::Suite.into() {
             Some(Self { syntax })
         } else {
             None

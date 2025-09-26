@@ -1,17 +1,32 @@
 use crate::{
-    LexerState, LuaNonStdSymbol, kind::PyTokenKind, parser_error::LuaParseError, text::Reader,
+    kind::PyTokenKind, parser_error::LuaParseError, text::Reader,
 };
 
 use super::{is_name_continue, is_name_start, lexer_config::LexerConfig, token_data::PyTokenData};
 
-pub struct LuaLexer<'a> {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LexerState {
+    Normal,
+    String(char),      // quote character
+    TripleString(char), // quote character for triple-quoted strings
+}
+
+#[derive(Debug, Clone)]
+struct IndentInfo {
+    indent_stack: Vec<usize>,
+    at_line_start: bool,
+    pending_dedents: usize,
+}
+
+pub struct PyLexer<'a> {
     reader: Reader<'a>,
     lexer_config: LexerConfig,
     errors: Option<&'a mut Vec<LuaParseError>>,
     state: LexerState,
+    indent_info: IndentInfo,
 }
 
-impl<'a> LuaLexer<'a> {
+impl<'a> PyLexer<'a> {
     pub fn new(
         reader: Reader<'a>,
         lexer_config: LexerConfig,
@@ -26,11 +41,16 @@ impl<'a> LuaLexer<'a> {
         lexer_config: LexerConfig,
         errors: Option<&'a mut Vec<LuaParseError>>,
     ) -> Self {
-        LuaLexer {
+        PyLexer {
             reader,
             lexer_config,
             errors,
             state,
+            indent_info: IndentInfo {
+                indent_stack: vec![0],
+                at_line_start: true,
+                pending_dedents: 0,
+            },
         }
     }
 
@@ -38,16 +58,25 @@ impl<'a> LuaLexer<'a> {
         let mut tokens = vec![];
 
         while !self.reader.is_eof() {
+            // Handle pending dedents
+            if self.indent_info.pending_dedents > 0 {
+                self.indent_info.pending_dedents -= 1;
+                tokens.push(PyTokenData::new(PyTokenKind::TkDedent, self.reader.current_range()));
+                continue;
+            }
+
             let kind = match self.state {
                 LexerState::Normal => self.lex(),
                 LexerState::String(quote) => self.lex_string(quote),
-                LexerState::LongString(sep) => self.lex_long_string(sep),
-                LexerState::LongComment(sep) => {
-                    self.lex_long_string(sep);
-                    PyTokenKind::TkLongComment
-                }
+                LexerState::TripleString(quote) => self.lex_triple_string(quote),
             };
+            
             if kind == PyTokenKind::TkEof {
+                // Generate final dedents
+                while self.indent_info.indent_stack.len() > 1 {
+                    self.indent_info.indent_stack.pop();
+                    tokens.push(PyTokenData::new(PyTokenKind::TkDedent, self.reader.current_range()));
+                }
                 break;
             }
 
@@ -67,47 +96,46 @@ impl<'a> LuaLexer<'a> {
         self.tokenize()
     }
 
-    fn support_non_std_symbol(&self, symbol: LuaNonStdSymbol) -> bool {
-        self.lexer_config.non_std_symbols.support(symbol)
-    }
+
 
     fn name_to_kind(&self, name: &str) -> PyTokenKind {
         match name {
+            // Python keywords
             "and" => PyTokenKind::TkAnd,
+            "as" => PyTokenKind::TkAs,
+            "assert" => PyTokenKind::TkAssert,
+            "async" => PyTokenKind::TkAsync,
+            "await" => PyTokenKind::TkAwait,
             "break" => PyTokenKind::TkBreak,
-            "do" => PyTokenKind::TkDo,
+            "class" => PyTokenKind::TkClass,
+            "continue" => PyTokenKind::TkContinue,
+            "def" => PyTokenKind::TkDef,
+            "del" => PyTokenKind::TkDel,
+            "elif" => PyTokenKind::TkElif,
             "else" => PyTokenKind::TkElse,
-            "elseif" => PyTokenKind::TkElseIf,
-            "end" => PyTokenKind::TkEnd,
-            "false" => PyTokenKind::TkFalse,
+            "except" => PyTokenKind::TkExcept,
+            "False" => PyTokenKind::TkFalse,
+            "finally" => PyTokenKind::TkFinally,
             "for" => PyTokenKind::TkFor,
-            "function" => PyTokenKind::TkFunction,
-            "goto" => {
-                if self.lexer_config.support_goto() {
-                    PyTokenKind::TkGoto
-                } else {
-                    PyTokenKind::TkName
-                }
-            }
+            "from" => PyTokenKind::TkFrom,
+            "global" => PyTokenKind::TkGlobal,
             "if" => PyTokenKind::TkIf,
+            "import" => PyTokenKind::TkImport,
             "in" => PyTokenKind::TkIn,
-            "local" => PyTokenKind::TkLocal,
-            "nil" => PyTokenKind::TkNil,
+            "is" => PyTokenKind::TkIs,
+            "lambda" => PyTokenKind::TkLambda,
+            "nonlocal" => PyTokenKind::TkNonlocal,
+            "None" => PyTokenKind::TkNone,
             "not" => PyTokenKind::TkNot,
             "or" => PyTokenKind::TkOr,
-            "repeat" => PyTokenKind::TkRepeat,
+            "pass" => PyTokenKind::TkPass,
+            "raise" => PyTokenKind::TkRaise,
             "return" => PyTokenKind::TkReturn,
-            "then" => PyTokenKind::TkThen,
-            "true" => PyTokenKind::TkTrue,
-            "until" => PyTokenKind::TkUntil,
+            "try" => PyTokenKind::TkTry,
+            "True" => PyTokenKind::TkTrue,
             "while" => PyTokenKind::TkWhile,
-            "continue" => {
-                if self.support_non_std_symbol(LuaNonStdSymbol::Continue) {
-                    PyTokenKind::TkBreak
-                } else {
-                    PyTokenKind::TkName
-                }
-            }
+            "with" => PyTokenKind::TkWith,
+            "yield" => PyTokenKind::TkYield,
             _ => PyTokenKind::TkName,
         }
     }
@@ -115,58 +143,40 @@ impl<'a> LuaLexer<'a> {
     fn lex(&mut self) -> PyTokenKind {
         self.reader.reset_buff();
 
+        // Handle indentation at the beginning of a line
+        if self.indent_info.at_line_start {
+            return self.handle_indentation();
+        }
+
         match self.reader.current_char() {
             '\n' | '\r' => self.lex_new_line(),
             ' ' | '\t' => self.lex_white_space(),
             '-' => {
                 self.reader.bump();
-                if self.reader.current_char() == '='
-                    && self.support_non_std_symbol(LuaNonStdSymbol::MinusAssign)
-                {
-                    self.reader.bump();
-                    return PyTokenKind::TkMinusAssign;
-                }
-                if self.reader.current_char() != '-' {
-                    return PyTokenKind::TkMinus;
-                }
-
-                self.reader.bump();
-                if self.reader.current_char() == '[' {
-                    self.reader.bump();
-                    let sep = self.skip_sep();
-                    if self.reader.current_char() == '[' {
+                match self.reader.current_char() {
+                    '=' => {
                         self.reader.bump();
-                        self.state = LexerState::LongComment(sep);
-                        self.lex_long_string(sep);
-                        return PyTokenKind::TkLongComment;
+                        PyTokenKind::TkMinusAssign
                     }
+                    '>' => {
+                        self.reader.bump();
+                        PyTokenKind::TkArrow
+                    }
+                    _ => PyTokenKind::TkMinus,
                 }
-
-                self.reader.eat_while(|ch| ch != '\n' && ch != '\r');
-                PyTokenKind::TkShortComment
             }
             '[' => {
                 self.reader.bump();
-                let sep = self.skip_sep();
-                if sep == 0 && self.reader.current_char() != '[' {
-                    return PyTokenKind::TkLeftBracket;
-                }
-                if self.reader.current_char() != '[' {
-                    self.error(|| t!("invalid long string delimiter"));
-                    return PyTokenKind::TkLongString;
-                }
-
-                self.reader.bump();
-                self.state = LexerState::LongString(sep);
-                self.lex_long_string(sep)
+                PyTokenKind::TkLeftBracket
             }
             '=' => {
                 self.reader.bump();
-                if self.reader.current_char() != '=' {
-                    return PyTokenKind::TkAssign;
+                if self.reader.current_char() == '=' {
+                    self.reader.bump();
+                    PyTokenKind::TkEq
+                } else {
+                    PyTokenKind::TkAssign
                 }
-                self.reader.bump();
-                PyTokenKind::TkEq
             }
             '<' => {
                 self.reader.bump();
@@ -176,18 +186,13 @@ impl<'a> LuaLexer<'a> {
                         PyTokenKind::TkLe
                     }
                     '<' => {
-                        if !self.lexer_config.support_integer_operation() {
-                            self.error(|| t!("bitwise operation is not supported"));
-                        }
-
                         self.reader.bump();
-                        if self.reader.current_char() == '='
-                            && self.support_non_std_symbol(LuaNonStdSymbol::ShiftLeftAssign)
-                        {
+                        if self.reader.current_char() == '=' {
                             self.reader.bump();
-                            return PyTokenKind::TkShiftLeftAssign;
+                            PyTokenKind::TkShlAssign
+                        } else {
+                            PyTokenKind::TkShl
                         }
-                        PyTokenKind::TkShl
                     }
                     _ => PyTokenKind::TkLt,
                 }
@@ -200,226 +205,151 @@ impl<'a> LuaLexer<'a> {
                         PyTokenKind::TkGe
                     }
                     '>' => {
-                        if !self.lexer_config.support_integer_operation() {
-                            self.error(|| t!("bitwise operation is not supported"));
-                        }
-
                         self.reader.bump();
-                        if self.reader.current_char() == '='
-                            && self.support_non_std_symbol(LuaNonStdSymbol::ShiftRightAssign)
-                        {
+                        if self.reader.current_char() == '=' {
                             self.reader.bump();
-                            return PyTokenKind::TkShiftRightAssign;
+                            PyTokenKind::TkShrAssign
+                        } else {
+                            PyTokenKind::TkShr
                         }
-                        PyTokenKind::TkShr
                     }
                     _ => PyTokenKind::TkGt,
                 }
             }
             '~' => {
                 self.reader.bump();
-                if self.reader.current_char() != '=' {
-                    if !self.lexer_config.support_integer_operation() {
-                        self.error(|| t!("bitwise operation is not supported"));
-                    }
-                    return PyTokenKind::TkBitXor;
-                }
-                self.reader.bump();
-                PyTokenKind::TkNe
+                PyTokenKind::TkBitNot
             }
             ':' => {
                 self.reader.bump();
-                if self.reader.current_char() != ':' {
-                    return PyTokenKind::TkColon;
-                }
-                self.reader.bump();
-                PyTokenKind::TkDbColon
+                PyTokenKind::TkColon
             }
-            '"' | '\'' | '`' => {
+            '"' | '\'' => {
                 let quote = self.reader.current_char();
-                if quote == '`' && !self.support_non_std_symbol(LuaNonStdSymbol::Backtick) {
-                    self.reader.bump();
-                    return PyTokenKind::TkUnknown;
-                }
-
                 self.reader.bump();
-                self.state = LexerState::String(quote);
-                self.lex_string(quote)
+                
+                // Check for triple-quoted strings
+                if self.reader.current_char() == quote && self.reader.next_char() == quote {
+                    self.reader.bump(); // second quote
+                    self.reader.bump(); // third quote
+                    self.state = LexerState::TripleString(quote);
+                    self.lex_triple_string(quote)
+                } else {
+                    self.state = LexerState::String(quote);
+                    self.lex_string(quote)
+                }
             }
             '.' => {
                 if self.reader.next_char().is_ascii_digit() {
                     return self.lex_number();
                 }
-
                 self.reader.bump();
-                if self.reader.current_char() != '.' {
-                    return PyTokenKind::TkDot;
-                }
-                self.reader.bump();
-                if self.reader.current_char() != '.' {
-                    return PyTokenKind::TkConcat;
-                }
-                self.reader.bump();
-                PyTokenKind::TkDots
+                PyTokenKind::TkDot
             }
             '0'..='9' => self.lex_number(),
             '/' => {
                 self.reader.bump();
-                let current_char = self.reader.current_char();
-                match current_char {
-                    '*' if self.support_non_std_symbol(LuaNonStdSymbol::SlashStar) => {
-                        // "/*" is a long comment
+                match self.reader.current_char() {
+                    '/' => {
                         self.reader.bump();
-                        loop {
-                            let ch = self.reader.current_char();
-                            match ch {
-                                '*' => {
-                                    self.reader.bump();
-                                    if self.reader.current_char() == '/' {
-                                        self.reader.bump();
-                                        return PyTokenKind::TkLongComment;
-                                    }
-                                }
-                                _ if self.reader.is_eof() => {
-                                    self.error(|| t!("unfinished long comment"));
-                                    return PyTokenKind::TkLongComment;
-                                }
-                                _ => {
-                                    self.reader.bump();
-                                }
-                            }
-                        }
-                    }
-                    '=' if self.support_non_std_symbol(LuaNonStdSymbol::SlashAssign) => {
-                        self.reader.bump();
-                        PyTokenKind::TkSlashAssign
-                    }
-                    _ if current_char != '/' => PyTokenKind::TkDiv,
-                    _ if self.support_non_std_symbol(LuaNonStdSymbol::DoubleSlash) => {
-                        // "//" is a short comment
-                        self.reader.bump();
-                        self.reader.eat_while(|ch| ch != '\n' && ch != '\r');
-                        PyTokenKind::TkShortComment
-                    }
-                    _ => {
-                        if !self.lexer_config.support_integer_operation() {
-                            self.error(|| t!("integer division is not supported"));
-                        }
-
-                        self.reader.bump();
-                        if self.reader.current_char() == '='
-                            && self.support_non_std_symbol(LuaNonStdSymbol::DoubleSlashAssign)
-                        {
+                        if self.reader.current_char() == '=' {
                             self.reader.bump();
-                            return PyTokenKind::TkDoubleSlashAssign;
+                            PyTokenKind::TkFloorDivAssign
+                        } else {
+                            PyTokenKind::TkFloorDiv
                         }
-                        PyTokenKind::TkIDiv
                     }
+                    '=' => {
+                        self.reader.bump();
+                        PyTokenKind::TkDivAssign
+                    }
+                    _ => PyTokenKind::TkDiv,
                 }
             }
             '*' => {
                 self.reader.bump();
-                if self.reader.current_char() == '='
-                    && self.support_non_std_symbol(LuaNonStdSymbol::StarAssign)
-                {
-                    self.reader.bump();
-                    return PyTokenKind::TkStarAssign;
+                match self.reader.current_char() {
+                    '*' => {
+                        self.reader.bump();
+                        if self.reader.current_char() == '=' {
+                            self.reader.bump();
+                            PyTokenKind::TkPowAssign
+                        } else {
+                            PyTokenKind::TkPow
+                        }
+                    }
+                    '=' => {
+                        self.reader.bump();
+                        PyTokenKind::TkMulAssign
+                    }
+                    _ => PyTokenKind::TkMul,
                 }
-                PyTokenKind::TkMul
             }
             '+' => {
                 self.reader.bump();
-                if self.reader.current_char() == '='
-                    && self.support_non_std_symbol(LuaNonStdSymbol::PlusAssign)
-                {
+                if self.reader.current_char() == '=' {
                     self.reader.bump();
-                    return PyTokenKind::TkPlusAssign;
+                    PyTokenKind::TkPlusAssign
+                } else {
+                    PyTokenKind::TkPlus
                 }
-                PyTokenKind::TkPlus
             }
             '%' => {
                 self.reader.bump();
-                if self.reader.current_char() == '='
-                    && self.support_non_std_symbol(LuaNonStdSymbol::PercentAssign)
-                {
+                if self.reader.current_char() == '=' {
                     self.reader.bump();
-                    return PyTokenKind::TkPercentAssign;
+                    PyTokenKind::TkModAssign
+                } else {
+                    PyTokenKind::TkMod
                 }
-                PyTokenKind::TkMod
             }
             '^' => {
                 self.reader.bump();
-                if self.reader.current_char() == '='
-                    && self.support_non_std_symbol(LuaNonStdSymbol::CaretAssign)
-                {
+                if self.reader.current_char() == '=' {
                     self.reader.bump();
-                    return PyTokenKind::TkCaretAssign;
+                    PyTokenKind::TkBitXorAssign
+                } else {
+                    PyTokenKind::TkBitXor
                 }
-                PyTokenKind::TkPow
             }
             '#' => {
                 self.reader.bump();
-                if self.reader.current_char() != '!' {
-                    return PyTokenKind::TkLen;
+                if self.reader.current_char() == '!' {
+                    // Shebang
+                    self.reader.eat_while(|ch| ch != '\n' && ch != '\r');
+                    PyTokenKind::TkShebang
+                } else {
+                    // Regular comment
+                    self.reader.eat_while(|ch| ch != '\n' && ch != '\r');
+                    PyTokenKind::TkComment
                 }
-                self.reader.eat_while(|ch| ch != '\n' && ch != '\r');
-                PyTokenKind::TkShebang
             }
             '!' => {
-                if !self.support_non_std_symbol(LuaNonStdSymbol::Exclamation) {
-                    self.reader.bump();
-                    return PyTokenKind::TkUnknown;
-                }
-
                 self.reader.bump();
-                if self.reader.current_char() == '='
-                    && self.support_non_std_symbol(LuaNonStdSymbol::NotEqual)
-                {
+                if self.reader.current_char() == '=' {
                     self.reader.bump();
-                    return PyTokenKind::TkNe;
+                    PyTokenKind::TkNe
+                } else {
+                    PyTokenKind::TkUnknown  // ! is not a valid operator in Python by itself
                 }
-                PyTokenKind::TkNot
             }
             '&' => {
                 self.reader.bump();
-                if self.reader.current_char() == '&'
-                    && self.support_non_std_symbol(LuaNonStdSymbol::DoubleAmp)
-                {
+                if self.reader.current_char() == '=' {
                     self.reader.bump();
-                    return PyTokenKind::TkAnd;
+                    PyTokenKind::TkBitAndAssign
+                } else {
+                    PyTokenKind::TkBitAnd
                 }
-                if self.reader.current_char() == '='
-                    && self.support_non_std_symbol(LuaNonStdSymbol::AmpAssign)
-                {
-                    self.reader.bump();
-                    return PyTokenKind::TkAmpAssign;
-                }
-
-                if !self.lexer_config.support_integer_operation() {
-                    self.error(|| t!("bitwise operation is not supported"));
-                }
-                PyTokenKind::TkBitAnd
             }
             '|' => {
                 self.reader.bump();
-                if self.reader.current_char() == '|'
-                    && self.support_non_std_symbol(LuaNonStdSymbol::DoublePipe)
-                {
+                if self.reader.current_char() == '=' {
                     self.reader.bump();
-                    return PyTokenKind::TkOr;
+                    PyTokenKind::TkBitOrAssign
+                } else {
+                    PyTokenKind::TkBitOr
                 }
-
-                if self.reader.current_char() == '='
-                    && self.support_non_std_symbol(LuaNonStdSymbol::PipeAssign)
-                {
-                    self.reader.bump();
-                    return PyTokenKind::TkPipeAssign;
-                }
-
-                if !self.lexer_config.support_integer_operation() {
-                    self.error(|| t!("bitwise operation is not supported"));
-                }
-                PyTokenKind::TkBitOr
             }
             '(' => {
                 self.reader.bump();
@@ -451,7 +381,12 @@ impl<'a> LuaLexer<'a> {
             }
             '@' => {
                 self.reader.bump();
-                PyTokenKind::TkAt
+                if self.reader.current_char() == '=' {
+                    self.reader.bump();
+                    PyTokenKind::TkMatMulAssign
+                } else {
+                    PyTokenKind::TkMatMul
+                }
             }
             _ if self.reader.is_eof() => PyTokenKind::TkEof,
             ch if is_name_start(ch) => {
@@ -464,6 +399,57 @@ impl<'a> LuaLexer<'a> {
                 self.reader.bump();
                 PyTokenKind::TkUnknown
             }
+        }
+    }
+
+    fn handle_indentation(&mut self) -> PyTokenKind {
+        let mut indent_level = 0;
+        
+        // Skip whitespace and count indentation
+        while matches!(self.reader.current_char(), ' ' | '\t') {
+            if self.reader.current_char() == ' ' {
+                indent_level += 1;
+            } else if self.reader.current_char() == '\t' {
+                indent_level += 8; // Tab equals 8 spaces
+            }
+            self.reader.bump();
+        }
+        
+        // If we hit a comment or newline, ignore this line
+        if matches!(self.reader.current_char(), '#' | '\n' | '\r') || self.reader.is_eof() {
+            self.indent_info.at_line_start = false;
+            return self.lex();
+        }
+        
+        self.indent_info.at_line_start = false;
+        
+        let current_indent = *self.indent_info.indent_stack.last().unwrap();
+        
+        if indent_level > current_indent {
+            // Increased indentation
+            self.indent_info.indent_stack.push(indent_level);
+            PyTokenKind::TkIndent
+        } else if indent_level < current_indent {
+            // Decreased indentation - may need multiple DEDENTs
+            let mut dedent_count = 0;
+            while let Some(&stack_indent) = self.indent_info.indent_stack.last() {
+                if stack_indent <= indent_level {
+                    break;
+                }
+                self.indent_info.indent_stack.pop();
+                dedent_count += 1;
+            }
+            
+            if dedent_count > 0 {
+                self.indent_info.pending_dedents = dedent_count - 1;
+                PyTokenKind::TkDedent
+            } else {
+                // Continue with normal lexing
+                self.lex()
+            }
+        } else {
+            // Same indentation level
+            self.lex()
         }
     }
 
@@ -486,7 +472,8 @@ impl<'a> LuaLexer<'a> {
             _ => {}
         }
 
-        PyTokenKind::TkEndOfLine
+        self.indent_info.at_line_start = true;
+        PyTokenKind::TkNewline
     }
 
     fn lex_white_space(&mut self) -> PyTokenKind {
@@ -494,121 +481,139 @@ impl<'a> LuaLexer<'a> {
         PyTokenKind::TkWhitespace
     }
 
-    fn skip_sep(&mut self) -> usize {
-        self.reader.eat_when('=')
+    fn lex_triple_string(&mut self, quote: char) -> PyTokenKind {
+        while !self.reader.is_eof() {
+            if self.reader.current_char() == quote {
+                self.reader.bump(); // consume first quote
+                if self.reader.current_char() == quote {
+                    self.reader.bump(); // consume second quote
+                    if self.reader.current_char() == quote {
+                        self.reader.bump(); // consume third quote
+                        self.state = LexerState::Normal;
+                        return PyTokenKind::TkString;
+                    }
+                }
+                // If we don't find three quotes, continue
+                continue;
+            }
+            
+            if self.reader.current_char() == '\\' {
+                self.reader.bump(); // skip escape character
+                if !self.reader.is_eof() {
+                    self.reader.bump(); // skip escaped character
+                }
+            } else {
+                self.reader.bump();
+            }
+        }
+        
+        self.error(|| "Unterminated triple-quoted string");
+        self.state = LexerState::Normal;
+        PyTokenKind::TkString
     }
 
     fn lex_string(&mut self, quote: char) -> PyTokenKind {
         while !self.reader.is_eof() {
             let ch = self.reader.current_char();
-            if ch == quote || ch == '\n' || ch == '\r' {
+            if ch == quote {
                 break;
             }
-
-            if ch != '\\' {
-                self.reader.bump();
-                continue;
+            
+            // Python strings cannot span multiple lines unless they're triple-quoted
+            if ch == '\n' || ch == '\r' {
+                self.error(|| "Unterminated string literal");
+                self.state = LexerState::Normal;
+                return PyTokenKind::TkString;
             }
 
-            self.reader.bump();
-            match self.reader.current_char() {
-                'z' => {
-                    self.reader.bump();
-                    self.reader
-                        .eat_while(|c| c == ' ' || c == '\t' || c == '\r' || c == '\n');
-                }
-                '\r' | '\n' => {
-                    self.lex_new_line();
-                }
-                _ => {
-                    self.reader.bump();
-                }
-            }
-        }
-
-        if self.reader.current_char() == quote || !self.reader.is_eof() {
-            self.state = LexerState::Normal;
-        }
-
-        if self.reader.current_char() != quote {
-            self.error(|| t!("unfinished string"));
-            return PyTokenKind::TkString;
-        }
-
-        self.reader.bump();
-        PyTokenKind::TkString
-    }
-
-    fn lex_long_string(&mut self, sep: usize) -> PyTokenKind {
-        let mut end = false;
-        while !self.reader.is_eof() {
-            match self.reader.current_char() {
-                ']' => {
-                    self.reader.bump();
-                    let count = self.reader.eat_when('=');
-                    if count == sep && self.reader.current_char() == ']' {
-                        self.reader.bump();
-                        end = true;
-                        break;
+            if ch == '\\' {
+                self.reader.bump(); // consume backslash
+                if !self.reader.is_eof() {
+                    // Handle escape sequences
+                    match self.reader.current_char() {
+                        '\n' | '\r' => {
+                            // Line continuation
+                            self.lex_new_line();
+                        }
+                        _ => {
+                            self.reader.bump(); // consume escaped character
+                        }
                     }
                 }
-                _ => {
-                    self.reader.bump();
-                }
+            } else {
+                self.reader.bump();
             }
         }
 
-        if end || !self.reader.is_eof() {
+        if self.reader.current_char() == quote {
+            self.reader.bump(); // consume closing quote
             self.state = LexerState::Normal;
+            PyTokenKind::TkString
+        } else {
+            self.error(|| "Unterminated string literal");
+            self.state = LexerState::Normal;
+            PyTokenKind::TkString
         }
-
-        if !end {
-            self.error(|| t!("unfinished long string or comment"));
-        }
-
-        PyTokenKind::TkLongString
     }
+
+
 
     fn lex_number(&mut self) -> PyTokenKind {
         enum NumberState {
             Int,
             Float,
             Hex,
-            HexFloat,
+            Binary,
+            Octal,
             WithExpo,
-            Bin,
         }
 
         let mut state = NumberState::Int;
         let first = self.reader.current_char();
-        self.reader.bump();
-        match first {
-            '0' if matches!(self.reader.current_char(), 'X' | 'x') => {
-                self.reader.bump();
-                state = NumberState::Hex;
+        
+        if first == '.' {
+            // Starting with dot means it's a float
+            self.reader.bump();
+            state = NumberState::Float;
+        } else {
+            self.reader.bump();
+            
+            if first == '0' {
+                match self.reader.current_char() {
+                    'x' | 'X' => {
+                        self.reader.bump();
+                        state = NumberState::Hex;
+                    }
+                    'b' | 'B' => {
+                        self.reader.bump();
+                        state = NumberState::Binary;
+                    }
+                    'o' | 'O' => {
+                        self.reader.bump();
+                        state = NumberState::Octal;
+                    }
+                    '0'..='7' => {
+                        // Legacy octal (Python 2 style), treat as regular int
+                        state = NumberState::Int;
+                    }
+                    _ => {
+                        // Just a zero
+                        state = NumberState::Int;
+                    }
+                }
             }
-            '0' if matches!(self.reader.current_char(), 'B' | 'b')
-                && self.lexer_config.support_binary_integer() =>
-            {
-                self.reader.bump();
-                state = NumberState::Bin;
-            }
-            '.' => {
-                state = NumberState::Float;
-            }
-            _ => {}
         }
 
         while !self.reader.is_eof() {
             let ch = self.reader.current_char();
             let continue_ = match state {
                 NumberState::Int => match ch {
-                    '0'..='9' => true,
+                    '0'..='9' | '_' => true, // Python allows underscores in numbers
                     '.' => {
                         state = NumberState::Float;
                         true
                     }
-                    _ if matches!(self.reader.current_char(), 'e' | 'E') => {
+                    'e' | 'E' => {
                         if matches!(self.reader.next_char(), '+' | '-') {
                             self.reader.bump();
                         }
@@ -618,8 +623,8 @@ impl<'a> LuaLexer<'a> {
                     _ => false,
                 },
                 NumberState::Float => match ch {
-                    '0'..='9' => true,
-                    _ if matches!(self.reader.current_char(), 'e' | 'E') => {
+                    '0'..='9' | '_' => true,
+                    'e' | 'E' => {
                         if matches!(self.reader.next_char(), '+' | '-') {
                             self.reader.bump();
                         }
@@ -628,34 +633,10 @@ impl<'a> LuaLexer<'a> {
                     }
                     _ => false,
                 },
-                NumberState::Hex => match ch {
-                    '0'..='9' | 'a'..='f' | 'A'..='F' => true,
-                    '.' => {
-                        state = NumberState::HexFloat;
-                        true
-                    }
-                    _ if matches!(self.reader.current_char(), 'P' | 'p') => {
-                        if matches!(self.reader.next_char(), '+' | '-') {
-                            self.reader.bump();
-                        }
-                        state = NumberState::WithExpo;
-                        true
-                    }
-                    _ => false,
-                },
-                NumberState::HexFloat => match ch {
-                    '0'..='9' | 'a'..='f' | 'A'..='F' => true,
-                    _ if matches!(self.reader.current_char(), 'P' | 'p') => {
-                        if matches!(self.reader.next_char(), '+' | '-') {
-                            self.reader.bump();
-                        }
-                        state = NumberState::WithExpo;
-                        true
-                    }
-                    _ => false,
-                },
-                NumberState::WithExpo => ch.is_ascii_digit(),
-                NumberState::Bin => matches!(ch, '0' | '1'),
+                NumberState::Hex => matches!(ch, '0'..='9' | 'a'..='f' | 'A'..='F' | '_'),
+                NumberState::Binary => matches!(ch, '0' | '1' | '_'),
+                NumberState::Octal => matches!(ch, '0'..='7' | '_'),
+                NumberState::WithExpo => ch.is_ascii_digit() || ch == '_',
             };
 
             if continue_ {
@@ -665,29 +646,20 @@ impl<'a> LuaLexer<'a> {
             }
         }
 
-        if self.lexer_config.support_complex_number() && self.reader.current_char() == 'i' {
+        // Check for imaginary number suffix
+        if self.reader.current_char() == 'j' || self.reader.current_char() == 'J' {
             self.reader.bump();
             return PyTokenKind::TkComplex;
         }
 
-        if self.lexer_config.support_ll_integer()
-            && matches!(
-                state,
-                NumberState::Int | NumberState::Hex | NumberState::Bin
-            )
-        {
-            self.reader
-                .eat_while(|ch| matches!(ch, 'u' | 'U' | 'l' | 'L'));
-            return PyTokenKind::TkInt;
-        }
-
+        // Check for invalid characters after number
         if self.reader.current_char().is_alphabetic() {
             let ch = self.reader.current_char();
-            self.error(|| t!("unexpected character '%{ch}' after number literal", ch = ch));
+            self.error(|| format!("Invalid character '{}' in number literal", ch));
         }
 
         match state {
-            NumberState::Int | NumberState::Hex => PyTokenKind::TkInt,
+            NumberState::Int | NumberState::Hex | NumberState::Binary | NumberState::Octal => PyTokenKind::TkInt,
             _ => PyTokenKind::TkFloat,
         }
     }

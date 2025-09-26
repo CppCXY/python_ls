@@ -1,4 +1,4 @@
-use crate::{LuaNonStdSymbolSet, kind::PyLanguageLevel};
+use crate::kind::PyLanguageLevel;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LexerConfig {
