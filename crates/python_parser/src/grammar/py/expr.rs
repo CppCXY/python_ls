@@ -89,23 +89,45 @@ fn parse_sub_expr(p: &mut PyParser, limit: i32) -> ParseResult {
     while bop != BinaryOperator::OpNop && bop.get_priority().left > limit {
         let op_range = p.current_token_range();
         let op_token = p.current_token();
-        let m = cm.precede(p, PySyntaxKind::BinaryExpr);
-        p.bump();
-        match parse_sub_expr(p, bop.get_priority().right) {
-            Ok(_) => {}
-            Err(err) => {
-                p.push_error(PyParseError::syntax_error_from(
-                    &t!(
-                        "binary operator '%{op}' is not followed by an expression",
-                        op = op_token
-                    ),
-                    op_range,
-                ));
-                return Err(err);
+        
+        // Special handling for assignment expressions (walrus operator :=)
+        if bop == BinaryOperator::OpAssignExpr {
+            let m = cm.precede(p, PySyntaxKind::AssignExpr);
+            p.bump(); // consume ':='
+            
+            match parse_sub_expr(p, bop.get_priority().right) {
+                Ok(_) => {}
+                Err(err) => {
+                    p.push_error(PyParseError::syntax_error_from(
+                        &t!("assignment expression is not followed by an expression"),
+                        op_range,
+                    ));
+                    return Err(err);
+                }
             }
+            
+            cm = m.complete(p);
+        } else {
+            // Regular binary operators
+            let m = cm.precede(p, PySyntaxKind::BinaryExpr);
+            p.bump();
+            match parse_sub_expr(p, bop.get_priority().right) {
+                Ok(_) => {}
+                Err(err) => {
+                    p.push_error(PyParseError::syntax_error_from(
+                        &t!(
+                            "binary operator '%{op}' is not followed by an expression",
+                            op = op_token
+                        ),
+                        op_range,
+                    ));
+                    return Err(err);
+                }
+            }
+            
+            cm = m.complete(p);
         }
-
-        cm = m.complete(p);
+        
         bop = PyOpKind::to_binary_operator(p.current_token());
     }
 

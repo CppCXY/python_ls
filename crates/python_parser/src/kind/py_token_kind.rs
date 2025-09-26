@@ -87,6 +87,7 @@ pub enum PyTokenKind {
     TkBitXorAssign,   // ^=
     TkShlAssign,      // <<=
     TkShrAssign,      // >>=
+    TkColonAssign,    // := (walrus operator)
 
     // Delimiters
     TkDot,       // .

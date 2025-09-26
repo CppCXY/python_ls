@@ -149,6 +149,7 @@ impl PyOpKind {
             PyTokenKind::TkIn => BinaryOperator::OpIn,
             PyTokenKind::TkAnd => BinaryOperator::OpAnd,
             PyTokenKind::TkOr => BinaryOperator::OpOr,
+            PyTokenKind::TkColonAssign => BinaryOperator::OpAssignExpr,
             _ => BinaryOperator::OpNop,
         }
     }

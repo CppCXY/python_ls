@@ -46,11 +46,14 @@ pub enum BinaryOperator {
     OpAnd, // and
     OpOr,  // or
 
+    // Assignment expression (walrus operator)
+    OpAssignExpr, // :=
+
     OpNop, // (empty)
 }
 
 // Python operator precedence (higher number = higher precedence)
-pub const PRIORITY: [PriorityTable; 25] = [
+pub const PRIORITY: [PriorityTable; 26] = [
     // Arithmetic operators
     PriorityTable {
         left: 10,
@@ -104,6 +107,8 @@ pub const PRIORITY: [PriorityTable; 25] = [
     // Logical operators
     PriorityTable { left: 4, right: 4 }, // OpAnd
     PriorityTable { left: 3, right: 3 }, // OpOr
+    // Assignment expression (walrus operator) - very low priority
+    PriorityTable { left: 1, right: 1 }, // OpAssignExpr
 ];
 
 impl BinaryOperator {
@@ -136,6 +141,7 @@ impl BinaryOperator {
             PyTokenKind::TkIn => Some(BinaryOperator::OpIn),
             PyTokenKind::TkAnd => Some(BinaryOperator::OpAnd),
             PyTokenKind::TkOr => Some(BinaryOperator::OpOr),
+            PyTokenKind::TkColonAssign => Some(BinaryOperator::OpAssignExpr),
             _ => None,
         }
     }

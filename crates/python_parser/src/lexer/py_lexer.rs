@@ -227,7 +227,12 @@ impl<'a> PyLexer<'a> {
             }
             ':' => {
                 self.reader.bump();
-                PyTokenKind::TkColon
+                if self.reader.current_char() == '=' {
+                    self.reader.bump();
+                    PyTokenKind::TkColonAssign
+                } else {
+                    PyTokenKind::TkColon
+                }
             }
             '"' | '\'' => {
                 let quote = self.reader.current_char();

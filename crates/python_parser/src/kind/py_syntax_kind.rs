@@ -63,6 +63,7 @@ pub enum PySyntaxKind {
     BinaryExpr,  // binary operations (x + y, x and y, etc.)
     BoolOpExpr,  // boolean operations (and, or)
     CompareExpr, // comparisons (x < y, x == y, etc.)
+    AssignExpr,  // assignment expression (walrus operator :=)
 
     // Function and method calls
     CallExpr,       // function call
