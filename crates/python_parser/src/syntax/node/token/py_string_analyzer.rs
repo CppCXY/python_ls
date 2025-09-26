@@ -41,14 +41,49 @@ fn raw_string_value(token: &PySyntaxToken) -> Result<String, PyParseError> {
 }
 
 fn bytes_string_value(token: &PySyntaxToken) -> Result<String, PyParseError> {
-    // For simplicity, treat bytes strings like normal strings for now
-    // In a real implementation, you'd return Vec<u8> or handle encoding properly
-    normal_string_value(token)
+    let text = token.text();
+    
+    // Skip the 'b' or 'B' prefix
+    let quote_start = text.find(|c| c == '"' || c == '\'').unwrap_or(1);
+    let quote_char = text.chars().nth(quote_start).unwrap();
+    
+    // Check for triple quotes
+    let is_triple = text.len() > quote_start + 2
+        && text.chars().nth(quote_start + 1) == Some(quote_char)
+        && text.chars().nth(quote_start + 2) == Some(quote_char);
+    
+    if is_triple {
+        let start = quote_start + 3;
+        let end = text.len() - 3;
+        Ok(text[start..end].to_string())
+    } else {
+        let start = quote_start + 1;
+        let end = text.len() - 1;
+        Ok(text[start..end].to_string())
+    }
 }
 
 fn raw_bytes_string_value(token: &PySyntaxToken) -> Result<String, PyParseError> {
-    // Combination of raw and bytes string processing
-    raw_string_value(token)
+    let text = token.text();
+    
+    // Skip the 'rb' or 'br' or 'RB' or 'BR' prefix
+    let quote_start = text.find(|c| c == '"' || c == '\'').unwrap_or(2);
+    let quote_char = text.chars().nth(quote_start).unwrap();
+    
+    // Check for triple quotes
+    let is_triple = text.len() > quote_start + 2
+        && text.chars().nth(quote_start + 1) == Some(quote_char)
+        && text.chars().nth(quote_start + 2) == Some(quote_char);
+    
+    if is_triple {
+        let start = quote_start + 3;
+        let end = text.len() - 3;
+        Ok(text[start..end].to_string())
+    } else {
+        let start = quote_start + 1;
+        let end = text.len() - 1;
+        Ok(text[start..end].to_string())
+    }
 }
 
 fn f_string_value(token: &PySyntaxToken) -> Result<String, PyParseError> {

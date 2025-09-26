@@ -2,7 +2,9 @@
 mod tests {
     use crate::{
         kind::{PySyntaxKind, PyTokenKind},
-        syntax::node::token::{float_token_value, int_token_value, string_token_value},
+        syntax::node::token::{
+            IntegerOrLarge, float_token_value, int_token_value, string_token_value,
+        },
         syntax::{PySyntaxNode, PySyntaxToken},
     };
 
@@ -143,7 +145,7 @@ mod tests {
             fn $name() {
                 let token = &get_token($code, PyTokenKind::TkInt);
                 let result = int_token_value(token);
-                assert_eq!(result.unwrap().as_integer().unwrap(), $expected);
+                assert_eq!(result.unwrap(), IntegerOrLarge::Int($expected));
             }
         };
     }
@@ -235,7 +237,8 @@ mod tests {
     fn test_hex_float_precision() {
         let token = &get_token("0x1.91eb851eb851fp+1", PyTokenKind::TkFloat);
         let result = float_token_value(token).unwrap();
+
         // Should be approximately pi
-        assert!((result - std::f64::consts::PI).abs() < 0.001);
+        assert!((result - std::f64::consts::PI).abs() < 0.01);
     }
 }

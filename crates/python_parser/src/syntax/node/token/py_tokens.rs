@@ -1,4 +1,5 @@
 use crate::{
+    IntegerOrLarge,
     kind::{BinaryOperator, PyTokenKind, UnaryOperator},
     syntax::{PySyntaxToken, traits::PyAstToken},
 };
@@ -178,15 +179,15 @@ impl PyNumberToken {
         }
     }
 
-    pub fn get_int_value(&self) -> i64 {
+    pub fn get_int_value(&self) -> IntegerOrLarge {
         if self.is_int() {
             if let Ok(value) = int_token_value(&self.token) {
-                value.as_integer().unwrap_or(0)
+                value
             } else {
-                0
+                IntegerOrLarge::Int(0)
             }
         } else {
-            0
+            IntegerOrLarge::Int(0)
         }
     }
 }

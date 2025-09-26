@@ -30,8 +30,14 @@ pub fn float_token_value(token: &PySyntaxToken) -> Result<f64, PyParseError> {
             };
             let frac_part = &frac_part[1..];
             let frac_value = if !frac_part.is_empty() {
-                let frac_part_value = i64::from_str_radix(frac_part, 16).unwrap_or(0);
-                frac_part_value as f64 * 16f64.powi(-(frac_part.len() as i32))
+                // Parse hex fraction more accurately
+                let mut frac_val = 0.0;
+                for (i, c) in frac_part.chars().enumerate() {
+                    if let Some(digit_val) = c.to_digit(16) {
+                        frac_val += digit_val as f64 * 16f64.powi(-((i + 1) as i32));
+                    }
+                }
+                frac_val
             } else {
                 0.0
             };
@@ -84,29 +90,22 @@ enum IntegerRepr {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum IntegerOrUnsigned {
+pub enum IntegerOrLarge {
     Int(i64),
-    Uint(u64),
+    Large,
 }
 
-impl IntegerOrUnsigned {
-    pub fn is_unsigned(&self) -> bool {
-        matches!(self, IntegerOrUnsigned::Uint(_))
-    }
-
+impl IntegerOrLarge {
     pub fn is_signed(&self) -> bool {
-        matches!(self, IntegerOrUnsigned::Int(_))
+        matches!(self, IntegerOrLarge::Int(_))
     }
 
-    pub fn as_integer(&self) -> Option<i64> {
-        match self {
-            IntegerOrUnsigned::Int(value) => Some(*value),
-            IntegerOrUnsigned::Uint(_) => None,
-        }
+    pub fn is_large(&self) -> bool {
+        matches!(self, IntegerOrLarge::Large)
     }
 }
 
-pub fn int_token_value(token: &PySyntaxToken) -> Result<IntegerOrUnsigned, PyParseError> {
+pub fn int_token_value(token: &PySyntaxToken) -> Result<IntegerOrLarge, PyParseError> {
     let text = token.text();
 
     // Determine the representation
@@ -151,44 +150,14 @@ pub fn int_token_value(token: &PySyntaxToken) -> Result<IntegerOrUnsigned, PyPar
     };
 
     match signed_value {
-        Ok(value) => Ok(IntegerOrUnsigned::Int(value)),
+        Ok(value) => Ok(IntegerOrLarge::Int(value)),
         Err(e) => {
             let range = token.text_range();
 
             // For Python, integers have arbitrary precision in Python 3
             // But for our parser, we'll handle overflow by trying u64
             if *e.kind() == std::num::IntErrorKind::PosOverflow {
-                let unsigned_value = match repr {
-                    IntegerRepr::Hex => {
-                        let text = &text[2..];
-                        u64::from_str_radix(text, 16)
-                    }
-                    IntegerRepr::Bin => {
-                        let text = &text[2..];
-                        u64::from_str_radix(text, 2)
-                    }
-                    IntegerRepr::Oct => {
-                        let text = if text.starts_with("0o") || text.starts_with("0O") {
-                            &text[2..]
-                        } else {
-                            &text[1..]
-                        };
-                        u64::from_str_radix(text, 8)
-                    }
-                    IntegerRepr::Normal => text.parse::<u64>(),
-                };
-
-                match unsigned_value {
-                    Ok(value) => Ok(IntegerOrUnsigned::Uint(value)),
-                    Err(_) => Err(PyParseError::new(
-                        PyParseErrorKind::SyntaxError,
-                        &format!(
-                            "The integer literal '{}' is too large to be represented",
-                            token.text()
-                        ),
-                        range,
-                    )),
-                }
+                Ok(IntegerOrLarge::Large)
             } else if matches!(
                 *e.kind(),
                 std::num::IntErrorKind::NegOverflow | std::num::IntErrorKind::PosOverflow
