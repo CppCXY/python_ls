@@ -20,6 +20,7 @@ struct IndentInfo {
 
 pub struct PyLexer<'a> {
     reader: Reader<'a>,
+    #[allow(unused)]
     lexer_config: LexerConfig,
     errors: Option<&'a mut Vec<LuaParseError>>,
     state: LexerState,
@@ -504,8 +505,8 @@ impl<'a> PyLexer<'a> {
                 self.reader.bump();
             }
         }
-        
-        self.error(|| "Unterminated triple-quoted string");
+
+        self.error(|| t!("Unterminated triple-quoted string"));
         self.state = LexerState::Normal;
         PyTokenKind::TkString
     }

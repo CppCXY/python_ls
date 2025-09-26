@@ -23,6 +23,10 @@ pub struct PyParser<'a> {
     mark_level: usize,
     pub parse_config: ParserConfig<'a>,
     pub(crate) errors: &'a mut Vec<LuaParseError>,
+    // 括号嵌套级别跟踪
+    paren_level: usize,    // ()
+    bracket_level: usize,  // []
+    brace_level: usize,    // {}
 }
 
 impl MarkerEventContainer for PyParser<'_> {
@@ -62,6 +66,9 @@ impl<'a> PyParser<'a> {
             parse_config: config,
             mark_level: 0,
             errors: &mut errors,
+            paren_level: 0,
+            bracket_level: 0,
+            brace_level: 0,
         };
 
         parse_module(&mut parser);
@@ -158,9 +165,10 @@ impl<'a> PyParser<'a> {
             });
         }
 
-        let mut next_index = self.token_index + 1;
+        let start_trivia = self.token_index + 1;
+        let mut next_index = start_trivia;
         self.skip_trivia(&mut next_index);
-        self.parse_trivia_tokens(next_index);
+        self.parse_trivia_tokens(start_trivia, next_index);
         self.token_index = next_index;
 
         if self.token_index >= self.tokens.len() {
@@ -197,110 +205,33 @@ impl<'a> PyParser<'a> {
         }
     }
 
-    // Analyze consecutive whitespace/comments
-    // At this point, comments may be in the wrong parent node, adjustments will be made in the subsequent treeBuilder
-    fn parse_trivia_tokens(&mut self, next_index: usize) {
-        let mut line_count = 0;
-        let start = self.token_index;
-        let mut doc_tokens: Vec<PyTokenData> = Vec::new();
-        for i in start..next_index {
+    // Parse trivia tokens (comments, whitespace, shebang) 
+    // Note: TkNewline is no longer trivia in Python - it has syntactic meaning
+    fn parse_trivia_tokens(&mut self, start: usize, end: usize) {
+        // Simply consume trivia tokens and add them to events
+        for i in start..end {
             let token = &self.tokens[i];
             match token.kind {
                 PyTokenKind::TkComment => {
-                    line_count = 0;
-                    doc_tokens.push(*token);
+                    // For Python, comments are simple - just consume them
+                    self.events.push(MarkEvent::EatToken {
+                        kind: token.kind,
+                        range: token.range,
+                    });
                 }
-                PyTokenKind::TkEndOfLine => {
-                    line_count += 1;
-
-                    if doc_tokens.is_empty() {
-                        self.events.push(MarkEvent::EatToken {
-                            kind: token.kind,
-                            range: token.range,
-                        });
-                    } else {
-                        doc_tokens.push(*token);
-                    }
-
-                    // If there are two EOFs after the comment, the previous comment is considered a group of comments
-                    if line_count > 1 && !doc_tokens.is_empty() {
-                        self.parse_comments(&doc_tokens);
-                        doc_tokens.clear();
-                    }
-                    // check if the comment is an inline comment
-                    // first is comment, second is endofline
-                    else if doc_tokens.len() == 2 && i >= 2 {
-                        let mut temp_index = i as isize - 2;
-                        let mut inline_comment = false;
-                        while temp_index >= 0 {
-                            let kind = self.tokens[temp_index as usize].kind;
-                            match kind {
-                                PyTokenKind::TkEndOfLine => {
-                                    break;
-                                }
-                                PyTokenKind::TkWhitespace => {
-                                    temp_index -= 1;
-                                    continue;
-                                }
-                                _ => {
-                                    inline_comment = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if inline_comment {
-                            self.parse_comments(&doc_tokens);
-                            doc_tokens.clear();
-                        }
-                    }
-                }
-                PyTokenKind::TkShebang | PyTokenKind::TkWhitespace => {
-                    if doc_tokens.is_empty() {
-                        self.events.push(MarkEvent::EatToken {
-                            kind: token.kind,
-                            range: token.range,
-                        });
-                    } else {
-                        doc_tokens.push(*token);
-                    }
+                PyTokenKind::TkWhitespace | PyTokenKind::TkShebang => {
+                    // Simple trivia - just consume
+                    self.events.push(MarkEvent::EatToken {
+                        kind: token.kind,
+                        range: token.range,
+                    });
                 }
                 _ => {
-                    if !doc_tokens.is_empty() {
-                        self.parse_comments(&doc_tokens);
-                        doc_tokens.clear();
-                    }
+                    // Non-trivia token should not be here, but handle gracefully
+                    // This should not happen if is_trivia_kind is correct
+                    break;
                 }
             }
-        }
-
-        if !doc_tokens.is_empty() {
-            self.parse_comments(&doc_tokens);
-        }
-    }
-
-    fn parse_comments(&mut self, comment_tokens: &[PyTokenData]) {
-        let mut trivia_token_start = comment_tokens.len();
-        // Reverse iterate over comment_tokens, removing whitespace and end-of-line tokens
-        for i in (0..comment_tokens.len()).rev() {
-            if matches!(
-                comment_tokens[i].kind,
-                PyTokenKind::TkWhitespace | PyTokenKind::TkEndOfLine
-            ) {
-                trivia_token_start = i;
-            } else {
-                break;
-            }
-        }
-
-        let tokens = &comment_tokens[..trivia_token_start];
-        // LuaDocParser::parse(self, tokens);
-
-        for token in comment_tokens.iter().skip(trivia_token_start) {
-            self.events.push(MarkEvent::EatToken {
-                kind: token.kind,
-                range: token.range,
-            });
         }
     }
 
@@ -315,13 +246,95 @@ impl<'a> PyParser<'a> {
     pub fn get_errors(&self) -> Vec<LuaParseError> {
         self.errors.clone()
     }
+
+    /// Check if we're inside parentheses, brackets, or braces where newlines can be ignored
+    pub fn in_parentheses_context(&self) -> bool {
+        self.paren_level > 0 || self.bracket_level > 0 || self.brace_level > 0
+    }
+
+    /// Skip whitespace and optionally newlines (when inside parentheses)
+    pub fn skip_whitespace_and_optional_newlines(&mut self) {
+        while matches!(self.current_token(), PyTokenKind::TkWhitespace) 
+            || (self.in_parentheses_context() && matches!(self.current_token(), PyTokenKind::TkNewline)) 
+        {
+            self.bump();
+        }
+    }
+
+    /// 期待特定token，如果是括号类token则使用smart_bump
+    pub fn expect_token(&mut self, expected: PyTokenKind) -> bool {
+        if self.current_token() == expected {
+            match expected {
+                PyTokenKind::TkLeftParen | PyTokenKind::TkLeftBracket | PyTokenKind::TkLeftBrace |
+                PyTokenKind::TkRightParen | PyTokenKind::TkRightBracket | PyTokenKind::TkRightBrace => {
+                    self.smart_bump();
+                }
+                _ => {
+                    self.bump();
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Check if current position is at statement boundary (newline or dedent)
+    pub fn at_statement_boundary(&self) -> bool {
+        matches!(
+            self.current_token(),
+            PyTokenKind::TkNewline | PyTokenKind::TkDedent | PyTokenKind::TkEof
+        )
+    }
+
+    /// 进入括号上下文（增加嵌套级别）
+    pub fn enter_paren_context(&mut self, token: PyTokenKind) {
+        match token {
+            PyTokenKind::TkLeftParen => self.paren_level += 1,
+            PyTokenKind::TkLeftBracket => self.bracket_level += 1,
+            PyTokenKind::TkLeftBrace => self.brace_level += 1,
+            _ => {}
+        }
+    }
+
+    /// 退出括号上下文（减少嵌套级别）
+    pub fn exit_paren_context(&mut self, token: PyTokenKind) {
+        match token {
+            PyTokenKind::TkRightParen if self.paren_level > 0 => self.paren_level -= 1,
+            PyTokenKind::TkRightBracket if self.bracket_level > 0 => self.bracket_level -= 1,
+            PyTokenKind::TkRightBrace if self.brace_level > 0 => self.brace_level -= 1,
+            _ => {}
+        }
+    }
+
+    /// 智能bump：自动处理括号跟踪和上下文相关的换行符跳过
+    pub fn smart_bump(&mut self) {
+        let current = self.current_token();
+        
+        // 跟踪括号嵌套
+        match current {
+            PyTokenKind::TkLeftParen | PyTokenKind::TkLeftBracket | PyTokenKind::TkLeftBrace => {
+                self.enter_paren_context(current);
+            }
+            PyTokenKind::TkRightParen | PyTokenKind::TkRightBracket | PyTokenKind::TkRightBrace => {
+                self.exit_paren_context(current);
+            }
+            _ => {}
+        }
+        
+        self.bump();
+        
+        // 在括号内自动跳过换行符
+        if self.in_parentheses_context() && self.current_token() == PyTokenKind::TkNewline {
+            self.bump();
+        }
+    }
 }
 
 fn is_trivia_kind(kind: PyTokenKind) -> bool {
     matches!(
         kind,
         PyTokenKind::TkComment
-            | PyTokenKind::TkEndOfLine
             | PyTokenKind::TkWhitespace
             | PyTokenKind::TkShebang
     )
@@ -334,7 +347,6 @@ fn is_invalid_kind(kind: PyTokenKind) -> bool {
             | PyTokenKind::TkEof
             | PyTokenKind::TkWhitespace
             | PyTokenKind::TkShebang
-            | PyTokenKind::TkEndOfLine
             | PyTokenKind::TkComment
     )
 }

@@ -142,7 +142,7 @@ pub fn parse_lambda_expr(p: &mut PyParser) -> ParseResult {
 
 fn parse_list_expr(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::ListExpr);
-    p.bump(); // consume '['
+    p.smart_bump(); // consume '[' and track bracket context
 
     if p.current_token() != PyTokenKind::TkRightBracket {
         loop {
@@ -167,7 +167,7 @@ fn parse_list_expr(p: &mut PyParser) -> ParseResult {
     }
 
     if p.current_token() == PyTokenKind::TkRightBracket {
-        p.bump();
+        p.smart_bump(); // consume ']' and update bracket context
     } else {
         p.push_error(LuaParseError::syntax_error_from(
             &t!("expected ']' to close list"),
@@ -280,7 +280,7 @@ fn parse_suffixed_expr(p: &mut PyParser) -> ParseResult {
         PyTokenKind::TkLeftParen => {
             let m = p.mark(PySyntaxKind::ParenExpr);
             let paren_range = p.current_token_range();
-            p.bump();
+            p.smart_bump(); // consume '(' and track paren context
             match parse_expr(p) {
                 Ok(_) => {}
                 Err(err) => {
@@ -292,7 +292,7 @@ fn parse_suffixed_expr(p: &mut PyParser) -> ParseResult {
                 }
             }
             if p.current_token() == PyTokenKind::TkRightParen {
-                p.bump();
+                p.smart_bump(); // consume ')' and update paren context
             } else {
                 p.push_error(LuaParseError::syntax_error_from(
                     &t!("expected ')' to close parentheses"),

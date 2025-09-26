@@ -44,7 +44,6 @@ pub enum PyTokenKind {
     TkYield,     // yield
 
     TkWhitespace, // whitespace
-    TkEndOfLine,  // end of line
     TkNewline,    // \n
     
     // Operators

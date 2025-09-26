@@ -7,7 +7,7 @@ use crate::{
     parser_error::LuaParseError,
 };
 
-use super::{expr::parse_expr, if_token_bump};
+use super::expr::parse_expr;
 
 // Parse an indented block (suite in Python grammar)
 fn parse_suite(p: &mut PyParser) -> ParseResult {
@@ -97,18 +97,6 @@ fn recover_to_keywords(p: &mut PyParser, keywords: &[PyTokenKind]) {
 
         p.bump();
     }
-}
-
-// Parse a comma-separated list of expressions, returning an error message only if there's an error.
-fn parse_expr_list_impl(p: &mut PyParser) -> Result<(), &'static str> {
-    parse_expr(p).map_err(|_| "expected expression")?;
-
-    while p.current_token() == PyTokenKind::TkComma {
-        p.bump();
-        parse_expr(p).map_err(|_| "expected expression after ','")?;
-    }
-
-    Ok(())
 }
 
 pub fn parse_stats(p: &mut PyParser) {
@@ -370,22 +358,26 @@ fn parse_for_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
 
 fn parse_return(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::ReturnStmt);
-    p.bump();
-    if !block_follow(p)
-        && p.current_token() != PyTokenKind::TkSemicolon
-        && parse_expr_list_impl(p).is_err()
-    {
-        push_expr_error_lazy(p, || t!("expected expression in return statement"));
+    p.bump(); // consume 'return'
+    
+    // Optional return value
+    if !matches!(
+        p.current_token(),
+        PyTokenKind::TkNewline | PyTokenKind::TkEof | PyTokenKind::TkDedent
+    ) {
+        if parse_expr(p).is_err() {
+            push_expr_error_lazy(p, || t!("expected expression in return statement"));
+        }
     }
 
-    if_token_bump(p, PyTokenKind::TkSemicolon);
+    consume_statement_terminator(p);
     Ok(m.complete(p))
 }
 
 fn parse_break(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::BreakStmt);
-    p.bump();
-    if_token_bump(p, PyTokenKind::TkSemicolon);
+    p.bump(); // consume 'break'
+    consume_statement_terminator(p);
     Ok(m.complete(p))
 }
 
@@ -407,7 +399,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
     // Parameters
     if p.current_token() == PyTokenKind::TkLeftParen {
         let param_m = p.mark(PySyntaxKind::Parameters);
-        p.bump(); // consume '('
+        p.smart_bump(); // consume '(' and track paren context
 
         // Parse parameters if any
         if p.current_token() != PyTokenKind::TkRightParen {
@@ -429,7 +421,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
         }
 
         if p.current_token() == PyTokenKind::TkRightParen {
-            p.bump();
+            p.smart_bump(); // consume ')' and update paren context
         }
         param_m.complete(p);
     }
@@ -598,12 +590,14 @@ fn parse_from_import(p: &mut PyParser) -> ParseResult {
 fn parse_continue(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::ContinueStmt);
     p.bump(); // consume 'continue'
+    consume_statement_terminator(p);
     Ok(m.complete(p))
 }
 
 fn parse_pass(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::PassStmt);
     p.bump(); // consume 'pass'
+    consume_statement_terminator(p);
     Ok(m.complete(p))
 }
 
@@ -624,6 +618,7 @@ fn parse_raise(p: &mut PyParser) -> ParseResult {
         }
     }
 
+    consume_statement_terminator(p);
     Ok(m.complete(p))
 }
 
@@ -870,9 +865,17 @@ fn parse_async_stmt(p: &mut PyParser) -> ParseResult {
 }
 
 fn parse_newline(p: &mut PyParser) -> ParseResult {
-    let m = p.mark(PySyntaxKind::ExprStmt);
+    // In Python, a standalone newline represents an empty statement
+    let m = p.mark(PySyntaxKind::Newline);
     p.bump(); // consume newline
     Ok(m.complete(p))
+}
+
+/// Consume optional newline at the end of simple statements
+fn consume_statement_terminator(p: &mut PyParser) {
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump();
+    }
 }
 
 fn parse_assign_or_expr_stat(p: &mut PyParser) -> ParseResult {
@@ -898,10 +901,12 @@ fn parse_assign_or_expr_stat(p: &mut PyParser) -> ParseResult {
             ));
         }
 
+        consume_statement_terminator(p);
         Ok(m.complete(p))
     } else {
         // Just an expression statement
         m.set_kind(p, PySyntaxKind::ExprStmt);
+        consume_statement_terminator(p);
         Ok(m.complete(p))
     }
 }
