@@ -13,7 +13,50 @@ pub fn parse_expr(p: &mut PyParser) -> ParseResult {
 
 // Parse single expression without tuple handling (for contexts like dict values, function args)
 pub fn parse_single_expr(p: &mut PyParser) -> ParseResult {
-    parse_sub_expr(p, 0)
+    parse_conditional_or_expr(p)
+}
+
+// Parse conditional expression or regular expression
+fn parse_conditional_or_expr(p: &mut PyParser) -> ParseResult {
+    let expr = parse_sub_expr(p, 0)?;
+
+    // Check for conditional expression pattern: expr if condition else expr
+    if p.current_token() == PyTokenKind::TkIf {
+        let m = expr.precede(p, PySyntaxKind::ConditionalExpr);
+        p.bump(); // consume 'if'
+
+        // Parse condition
+        if parse_sub_expr(p, 0).is_err() {
+            p.push_error(PyParseError::syntax_error_from(
+                "expected condition after 'if' in conditional expression",
+                p.current_token_range(),
+            ));
+            return Ok(m.complete(p));
+        }
+
+        // Expect 'else'
+        if p.current_token() == PyTokenKind::TkElse {
+            p.bump(); // consume 'else'
+        } else {
+            p.push_error(PyParseError::syntax_error_from(
+                "expected 'else' in conditional expression",
+                p.current_token_range(),
+            ));
+            return Ok(m.complete(p));
+        }
+
+        // Parse else expression
+        if parse_conditional_or_expr(p).is_err() {
+            p.push_error(PyParseError::syntax_error_from(
+                "expected expression after 'else' in conditional expression",
+                p.current_token_range(),
+            ));
+        }
+
+        Ok(m.complete(p))
+    } else {
+        Ok(expr)
+    }
 }
 
 // Parse tuple or single expression (handles comma-separated expressions)
@@ -21,7 +64,7 @@ fn parse_tuple_or_expr(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::TupleExpr);
 
     // Parse first expression
-    let first_expr = parse_sub_expr(p, 0)?;
+    let first_expr = parse_conditional_or_expr(p)?;
 
     // Check for comma (indicates tuple)
     if p.current_token() == PyTokenKind::TkComma {
@@ -43,7 +86,7 @@ fn parse_tuple_or_expr(p: &mut PyParser) -> ParseResult {
             }
 
             // Parse next expression
-            if parse_sub_expr(p, 0).is_err() {
+            if parse_conditional_or_expr(p).is_err() {
                 p.push_error(PyParseError::syntax_error_from(
                     &t!("expected expression after ','"),
                     p.current_token_range(),
@@ -89,12 +132,12 @@ fn parse_sub_expr(p: &mut PyParser, limit: i32) -> ParseResult {
     while bop != BinaryOperator::OpNop && bop.get_priority().left > limit {
         let op_range = p.current_token_range();
         let op_token = p.current_token();
-        
+
         // Special handling for assignment expressions (walrus operator :=)
         if bop == BinaryOperator::OpAssignExpr {
             let m = cm.precede(p, PySyntaxKind::AssignExpr);
             p.bump(); // consume ':='
-            
+
             match parse_sub_expr(p, bop.get_priority().right) {
                 Ok(_) => {}
                 Err(err) => {
@@ -105,7 +148,7 @@ fn parse_sub_expr(p: &mut PyParser, limit: i32) -> ParseResult {
                     return Err(err);
                 }
             }
-            
+
             cm = m.complete(p);
         } else {
             // Regular binary operators
@@ -124,10 +167,10 @@ fn parse_sub_expr(p: &mut PyParser, limit: i32) -> ParseResult {
                     return Err(err);
                 }
             }
-            
+
             cm = m.complete(p);
         }
-        
+
         bop = PyOpKind::to_binary_operator(p.current_token());
     }
 
@@ -146,7 +189,8 @@ fn parse_simple_expr(p: &mut PyParser) -> ParseResult {
         | PyTokenKind::TkBytesString
         | PyTokenKind::TkRawBytesString
         | PyTokenKind::TkFString
-        | PyTokenKind::TkRawString => {
+        | PyTokenKind::TkRawString
+        | PyTokenKind::TkEllipsis => {
             let m = p.mark(PySyntaxKind::LiteralExpr);
             p.bump();
             Ok(m.complete(p))
@@ -156,6 +200,8 @@ fn parse_simple_expr(p: &mut PyParser) -> ParseResult {
         PyTokenKind::TkLambda => parse_lambda_expr(p),
         PyTokenKind::TkYield => parse_yield_expr(p),
         PyTokenKind::TkAwait => parse_await_expr(p),
+        PyTokenKind::TkMul => parse_starred_expr(p),
+        PyTokenKind::TkPow => parse_double_starred_expr(p),
         PyTokenKind::TkName | PyTokenKind::TkLeftParen => parse_suffixed_expr(p),
         _ => {
             // Provide more specific error information
@@ -285,8 +331,8 @@ fn parse_list_or_comprehension(p: &mut PyParser) -> ParseResult {
         return Ok(m.complete(p));
     }
 
-    // Parse first expression
-    if parse_expr(p).is_err() {
+    // Parse first expression (avoid conditional expression parsing in comprehension context)
+    if parse_sub_expr(p, 0).is_err() {
         p.push_error(PyParseError::syntax_error_from(
             &t!("expected expression in list"),
             p.current_token_range(),
@@ -322,18 +368,18 @@ fn parse_list_or_comprehension(p: &mut PyParser) -> ParseResult {
             ));
         }
 
-        // Parse iterator expression
-        if parse_expr(p).is_err() {
+        // Parse iterator expression (avoid conditional expression parsing)
+        if parse_sub_expr(p, 0).is_err() {
             p.push_error(PyParseError::syntax_error_from(
                 &t!("expected iterator expression after 'in'"),
                 p.current_token_range(),
             ));
         }
 
-        // Optional 'if' condition
+        // Optional 'if' condition (avoid conditional expression parsing)
         if p.current_token() == PyTokenKind::TkIf {
             p.bump(); // consume 'if'
-            if parse_expr(p).is_err() {
+            if parse_sub_expr(p, 0).is_err() {
                 p.push_error(PyParseError::syntax_error_from(
                     &t!("expected condition after 'if'"),
                     p.current_token_range(),
@@ -350,7 +396,7 @@ fn parse_list_or_comprehension(p: &mut PyParser) -> ParseResult {
                 break;
             }
 
-            if parse_expr(p).is_err() {
+            if parse_conditional_or_expr(p).is_err() {
                 p.push_error(PyParseError::syntax_error_from(
                     &t!("expected expression in list"),
                     p.current_token_range(),
@@ -754,4 +800,32 @@ fn parse_subscript_inner(p: &mut PyParser) {
 
         slice_m.complete(p);
     }
+}
+
+fn parse_starred_expr(p: &mut PyParser) -> ParseResult {
+    let m = p.mark(PySyntaxKind::StarredExpr);
+    p.bump(); // consume '*'
+
+    if parse_single_expr(p).is_err() {
+        p.push_error(PyParseError::syntax_error_from(
+            "expected expression after '*'",
+            p.current_token_range(),
+        ));
+    }
+
+    Ok(m.complete(p))
+}
+
+fn parse_double_starred_expr(p: &mut PyParser) -> ParseResult {
+    let m = p.mark(PySyntaxKind::DoubleStarredExpr);
+    p.bump(); // consume '**'
+
+    if parse_single_expr(p).is_err() {
+        p.push_error(PyParseError::syntax_error_from(
+            "expected expression after '**'",
+            p.current_token_range(),
+        ));
+    }
+
+    Ok(m.complete(p))
 }

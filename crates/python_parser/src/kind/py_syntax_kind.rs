@@ -59,11 +59,12 @@ pub enum PySyntaxKind {
     SetExpr,     // set expression
 
     // Unary and binary operations
-    UnaryExpr,   // unary operations (+x, -x, not x, ~x)
-    BinaryExpr,  // binary operations (x + y, x and y, etc.)
-    BoolOpExpr,  // boolean operations (and, or)
-    CompareExpr, // comparisons (x < y, x == y, etc.)
-    AssignExpr,  // assignment expression (walrus operator :=)
+    UnaryExpr,       // unary operations (+x, -x, not x, ~x)
+    BinaryExpr,      // binary operations (x + y, x and y, etc.)
+    BoolOpExpr,      // boolean operations (and, or)
+    CompareExpr,     // comparisons (x < y, x == y, etc.)
+    AssignExpr,      // assignment expression (walrus operator :=)
+    ConditionalExpr, // conditional expression (x if condition else y)
 
     // Function and method calls
     CallExpr,       // function call
@@ -82,11 +83,12 @@ pub enum PySyntaxKind {
     GeneratorExpr, // generator expression
 
     // Conditional and special expressions
-    IfExpr,        // conditional expression (x if condition else y)
-    YieldExpr,     // yield expression
-    YieldFromExpr, // yield from expression
-    AwaitExpr,     // await expression
-    StarredExpr,   // *expression
+    IfExpr,            // conditional expression (x if condition else y)
+    YieldExpr,         // yield expression
+    YieldFromExpr,     // yield from expression
+    AwaitExpr,         // await expression
+    StarredExpr,       // *expression
+    DoubleStarredExpr, // **expression
 
     // Other nodes
     Parameter,  // function parameter

@@ -1205,7 +1205,7 @@ fn parse_function_parameters(p: &mut PyParser) {
     let mut has_pos_separator = false;
     let mut has_star = false;
     let mut has_double_star = false;
-    
+
     loop {
         match p.current_token() {
             // Position-only separator /
@@ -1219,28 +1219,28 @@ fn parse_function_parameters(p: &mut PyParser) {
                 has_pos_separator = true;
                 p.bump(); // consume '/'
             }
-            
+
             // *args or * (for keyword-only parameters)
             PyTokenKind::TkMul => {
                 if has_star {
                     p.push_error(PyParseError::syntax_error_from(
-                        "multiple '*' not allowed", 
+                        "multiple '*' not allowed",
                         p.current_token_range(),
                     ));
                 }
                 has_star = true;
-                
+
                 let param_m = p.mark(PySyntaxKind::Parameter);
                 p.bump(); // consume '*'
-                
+
                 // Check if this is *args (has a name) or just * (keyword-only separator)
                 if p.current_token() == PyTokenKind::TkName {
                     p.bump(); // consume parameter name
                 }
-                
+
                 param_m.complete(p);
             }
-            
+
             // **kwargs
             PyTokenKind::TkPow => {
                 if has_double_star {
@@ -1250,10 +1250,10 @@ fn parse_function_parameters(p: &mut PyParser) {
                     ));
                 }
                 has_double_star = true;
-                
+
                 let param_m = p.mark(PySyntaxKind::Parameter);
                 p.bump(); // consume '**'
-                
+
                 if p.current_token() == PyTokenKind::TkName {
                     p.bump(); // consume parameter name
                 } else {
@@ -1262,15 +1262,15 @@ fn parse_function_parameters(p: &mut PyParser) {
                         p.current_token_range(),
                     ));
                 }
-                
+
                 param_m.complete(p);
             }
-            
+
             // Regular parameter (positional, positional-only, or keyword-only)
             PyTokenKind::TkName => {
                 let param_m = p.mark(PySyntaxKind::Parameter);
                 p.bump(); // consume parameter name
-                
+
                 // Optional type annotation
                 if p.current_token() == PyTokenKind::TkColon {
                     p.bump(); // consume ':'
@@ -1283,7 +1283,7 @@ fn parse_function_parameters(p: &mut PyParser) {
                     }
                     annotation_m.complete(p);
                 }
-                
+
                 // Optional default value
                 if p.current_token() == PyTokenKind::TkAssign {
                     p.bump(); // consume '='
@@ -1294,13 +1294,13 @@ fn parse_function_parameters(p: &mut PyParser) {
                         ));
                     }
                 }
-                
+
                 param_m.complete(p);
             }
-            
+
             _ => break,
         }
-        
+
         // Handle comma separation
         if p.current_token() == PyTokenKind::TkComma {
             p.bump();
@@ -1340,6 +1340,11 @@ fn parse_match(p: &mut PyParser) -> ParseResult {
             "expected ':' after match expression",
             p.current_token_range(),
         ));
+    }
+
+    // Handle newline after ':'
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump();
     }
 
     // Parse case clauses
@@ -1390,6 +1395,11 @@ fn parse_case_clause(p: &mut PyParser) -> ParseResult {
             "expected ':' after case pattern",
             p.current_token_range(),
         ));
+    }
+
+    // Handle newline after ':'
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump();
     }
 
     // Parse suite
