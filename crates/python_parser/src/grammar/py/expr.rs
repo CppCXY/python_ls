@@ -1,7 +1,7 @@
 use crate::{
     grammar::{ParseFailReason, ParseResult, py::is_statement_start_token},
     kind::{BinaryOperator, PyOpKind, PySyntaxKind, PyTokenKind, UNARY_PRIORITY, UnaryOperator},
-    parser::{PyParser, MarkerEventContainer},
+    parser::{MarkerEventContainer, PyParser},
     parser_error::PyParseError,
 };
 
@@ -72,7 +72,10 @@ fn parse_simple_expr(p: &mut PyParser) -> ParseResult {
         | PyTokenKind::TkTrue
         | PyTokenKind::TkFalse
         | PyTokenKind::TkString
-        | PyTokenKind::TkBytes => {
+        | PyTokenKind::TkBytesString
+        | PyTokenKind::TkRawBytesString
+        | PyTokenKind::TkFString
+        | PyTokenKind::TkRawString => {
             let m = p.mark(PySyntaxKind::LiteralExpr);
             p.bump();
             Ok(m.complete(p))
@@ -266,14 +269,6 @@ fn parse_lambda_params(p: &mut PyParser) -> ParseResult {
     Ok(m.complete(p))
 }
 
-
-
-
-
-
-
-
-
 fn parse_suffixed_expr(p: &mut PyParser) -> ParseResult {
     let mut cm = match p.current_token() {
         PyTokenKind::TkName => parse_name_expr(p)?,
@@ -362,14 +357,12 @@ fn parse_name_expr(p: &mut PyParser) -> ParseResult {
     Ok(m.complete(p))
 }
 
-
-
 fn parse_args(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::Arguments);
-    
+
     if p.current_token() == PyTokenKind::TkLeftParen {
         p.bump(); // consume '('
-        
+
         if p.current_token() != PyTokenKind::TkRightParen {
             loop {
                 // Parse argument expression
@@ -383,9 +376,7 @@ fn parse_args(p: &mut PyParser) -> ParseResult {
                         // Skip to next comma or right parenthesis
                         while !matches!(
                             p.current_token(),
-                            PyTokenKind::TkComma
-                                | PyTokenKind::TkRightParen
-                                | PyTokenKind::TkEof
+                            PyTokenKind::TkComma | PyTokenKind::TkRightParen | PyTokenKind::TkEof
                         ) && !is_statement_start_token(p.current_token())
                         {
                             p.bump();

@@ -90,6 +90,7 @@ impl Marker {
         }
     }
 
+    #[allow(unused)]
     pub fn undo<P: MarkerEventContainer>(self, p: &mut P) -> CompleteMarker {
         match &mut p.get_events()[self.position] {
             MarkEvent::NodeStart { kind, .. } => {
@@ -105,11 +106,13 @@ impl Marker {
     }
 }
 
+#[allow(unused)]
 pub(crate) struct CompleteMarker {
     start: usize,
     pub kind: PySyntaxKind,
 }
 
+#[allow(unused)]
 impl CompleteMarker {
     pub fn precede<P: MarkerEventContainer>(&self, p: &mut P, kind: PySyntaxKind) -> Marker {
         let m = p.mark(kind);

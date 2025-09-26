@@ -1,59 +1,140 @@
 use crate::{
-    LuaAstToken, LuaGeneralToken, LuaLocalAttribute, LuaSyntaxNode,
     kind::PySyntaxKind,
-    syntax::{
-        LuaCommentOwner,
-        node::LuaNameToken,
-        traits::{LuaAstChildren, PyAstNode, LuaAstTokenChildren},
-    },
+    syntax::traits::{PyAstNode, PySyntaxNode},
 };
 
-use super::{
-    LuaBlock, LuaLocalName,
-    expr::{LuaCallExpr, LuaClosureExpr, LuaExpr, LuaVarExpr},
-};
+macro_rules! py_stat_ast {
+    ($($ast_name:ident : $syntax_kind:ident),* $(,)?) => {
+        $(
+            #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+            pub struct $ast_name {
+                syntax: PySyntaxNode,
+            }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum LuaStat {
-    LocalStat(LuaLocalStat),
-    AssignStat(LuaAssignStat),
-    CallExprStat(LuaCallExprStat),
-    FuncStat(LuaFuncStat),
-    LocalFuncStat(LuaLocalFuncStat),
-    IfStat(LuaIfStat),
-    WhileStat(LuaWhileStat),
-    DoStat(LuaDoStat),
-    ForStat(LuaForStat),
-    ForRangeStat(LuaForRangeStat),
-    RepeatStat(LuaRepeatStat),
-    BreakStat(LuaBreakStat),
-    ReturnStat(LuaReturnStat),
-    GotoStat(LuaGotoStat),
-    LabelStat(LuaLabelStat),
-    EmptyStat(LuaEmptyStat),
-    GlobalStat(LuaGlobalStat),
+            impl PyAstNode for $ast_name {
+                fn syntax(&self) -> &PySyntaxNode {
+                    &self.syntax
+                }
+
+                fn can_cast(kind: PySyntaxKind) -> bool
+                where
+                    Self: Sized,
+                {
+                    kind == PySyntaxKind::$syntax_kind
+                }
+
+                fn cast(syntax: PySyntaxNode) -> Option<Self>
+                where
+                    Self: Sized,
+                {
+                    if Self::can_cast(syntax.kind().into()) {
+                        Some(Self { syntax })
+                    } else {
+                        None
+                    }
+                }
+            }
+        )*
+    };
 }
 
-impl PyAstNode for LuaStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
+py_stat_ast!(
+    PyExprStmt: ExprStmt,
+    PyAssignStmt: AssignStmt,
+    PyAnnAssignStmt: AnnAssignStmt,
+    PyAugAssignStmt: AugAssignStmt,
+    PyFuncDef: FuncDef,
+    PyAsyncFuncDef: AsyncFuncDef,
+    PyClassDef: ClassDef,
+    PyIfStmt: IfStmt,
+    PyWhileStmt: WhileStmt,
+    PyForStmt: ForStmt,
+    PyAsyncForStmt: AsyncForStmt,
+    PyWithStmt: WithStmt,
+    PyAsyncWithStmt: AsyncWithStmt,
+    PyTryStmt: TryStmt,
+    PyBreakStmt: BreakStmt,
+    PyContinueStmt: ContinueStmt,
+    PyReturnStmt: ReturnStmt,
+    PyYieldStmt: YieldStmt,
+    PyRaiseStmt: RaiseStmt,
+    PyAssertStmt: AssertStmt,
+    PyDeleteStmt: DeleteStmt,
+    PyPassStmt: PassStmt,
+    PyGlobalStmt: GlobalStmt,
+    PyNonlocalStmt: NonlocalStmt,
+    PyImportStmt: ImportStmt,
+    PyImportFromStmt: ImportFromStmt,
+    PyMatchStmt: MatchStmt,
+    PyElseStmt: ElseClause,
+    PyElifStmt: ElifClause
+);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PyStat {
+    ExprStmt(PyExprStmt),
+    AssignStmt(PyAssignStmt),
+    AnnAssignStmt(PyAnnAssignStmt),
+    AugAssignStmt(PyAugAssignStmt),
+    FuncDef(PyFuncDef),
+    AsyncFuncDef(PyAsyncFuncDef),
+    ClassDef(PyClassDef),
+    IfStmt(PyIfStmt),
+    WhileStmt(PyWhileStmt),
+    ForStmt(PyForStmt),
+    AsyncForStmt(PyAsyncForStmt),
+    WithStmt(PyWithStmt),
+    AsyncWithStmt(PyAsyncWithStmt),
+    TryStmt(PyTryStmt),
+    BreakStmt(PyBreakStmt),
+    ContinueStmt(PyContinueStmt),
+    ReturnStmt(PyReturnStmt),
+    YieldStmt(PyYieldStmt),
+    RaiseStmt(PyRaiseStmt),
+    AssertStmt(PyAssertStmt),
+    DeleteStmt(PyDeleteStmt),
+    PassStmt(PyPassStmt),
+    GlobalStmt(PyGlobalStmt),
+    NonlocalStmt(PyNonlocalStmt),
+    ImportStmt(PyImportStmt),
+    ImportFromStmt(PyImportFromStmt),
+    MatchStmt(PyMatchStmt),
+    ElseStmt(PyElseStmt),
+    ElifStmt(PyElifStmt),
+}
+
+impl PyAstNode for PyStat {
+    fn syntax(&self) -> &PySyntaxNode {
         match self {
-            LuaStat::LocalStat(node) => node.syntax(),
-            LuaStat::AssignStat(node) => node.syntax(),
-            LuaStat::CallExprStat(node) => node.syntax(),
-            LuaStat::FuncStat(node) => node.syntax(),
-            LuaStat::LocalFuncStat(node) => node.syntax(),
-            LuaStat::IfStat(node) => node.syntax(),
-            LuaStat::WhileStat(node) => node.syntax(),
-            LuaStat::DoStat(node) => node.syntax(),
-            LuaStat::ForStat(node) => node.syntax(),
-            LuaStat::ForRangeStat(node) => node.syntax(),
-            LuaStat::RepeatStat(node) => node.syntax(),
-            LuaStat::BreakStat(node) => node.syntax(),
-            LuaStat::ReturnStat(node) => node.syntax(),
-            LuaStat::GotoStat(node) => node.syntax(),
-            LuaStat::LabelStat(node) => node.syntax(),
-            LuaStat::EmptyStat(node) => node.syntax(),
-            LuaStat::GlobalStat(node) => node.syntax(),
+            PyStat::ExprStmt(node) => node.syntax(),
+            PyStat::AssignStmt(node) => node.syntax(),
+            PyStat::AnnAssignStmt(node) => node.syntax(),
+            PyStat::AugAssignStmt(node) => node.syntax(),
+            PyStat::FuncDef(node) => node.syntax(),
+            PyStat::AsyncFuncDef(node) => node.syntax(),
+            PyStat::ClassDef(node) => node.syntax(),
+            PyStat::IfStmt(node) => node.syntax(),
+            PyStat::WhileStmt(node) => node.syntax(),
+            PyStat::ForStmt(node) => node.syntax(),
+            PyStat::AsyncForStmt(node) => node.syntax(),
+            PyStat::WithStmt(node) => node.syntax(),
+            PyStat::AsyncWithStmt(node) => node.syntax(),
+            PyStat::TryStmt(node) => node.syntax(),
+            PyStat::BreakStmt(node) => node.syntax(),
+            PyStat::ContinueStmt(node) => node.syntax(),
+            PyStat::ReturnStmt(node) => node.syntax(),
+            PyStat::YieldStmt(node) => node.syntax(),
+            PyStat::RaiseStmt(node) => node.syntax(),
+            PyStat::AssertStmt(node) => node.syntax(),
+            PyStat::DeleteStmt(node) => node.syntax(),
+            PyStat::PassStmt(node) => node.syntax(),
+            PyStat::GlobalStmt(node) => node.syntax(),
+            PyStat::NonlocalStmt(node) => node.syntax(),
+            PyStat::ImportStmt(node) => node.syntax(),
+            PyStat::ImportFromStmt(node) => node.syntax(),
+            PyStat::MatchStmt(node) => node.syntax(),
+            PyStat::ElseStmt(node) => node.syntax(),
+            PyStat::ElifStmt(node) => node.syntax(),
         }
     }
 
@@ -63,974 +144,75 @@ impl PyAstNode for LuaStat {
     {
         matches!(
             kind,
-            PySyntaxKind::LocalStat
-                | PySyntaxKind::AssignStat
-                | PySyntaxKind::CallExprStat
-                | PySyntaxKind::FuncStat
-                | PySyntaxKind::LocalFuncStat
-                | PySyntaxKind::IfStat
-                | PySyntaxKind::WhileStat
-                | PySyntaxKind::DoStat
-                | PySyntaxKind::ForStat
-                | PySyntaxKind::ForRangeStat
-                | PySyntaxKind::RepeatStat
-                | PySyntaxKind::BreakStat
-                | PySyntaxKind::ReturnStat
-                | PySyntaxKind::GotoStat
-                | PySyntaxKind::LabelStat
-                | PySyntaxKind::EmptyStat
-                | PySyntaxKind::GlobalStat
+            PySyntaxKind::ExprStmt
+                | PySyntaxKind::AssignStmt
+                | PySyntaxKind::AnnAssignStmt
+                | PySyntaxKind::AugAssignStmt
+                | PySyntaxKind::FuncDef
+                | PySyntaxKind::AsyncFuncDef
+                | PySyntaxKind::ClassDef
+                | PySyntaxKind::IfStmt
+                | PySyntaxKind::WhileStmt
+                | PySyntaxKind::ForStmt
+                | PySyntaxKind::AsyncForStmt
+                | PySyntaxKind::WithStmt
+                | PySyntaxKind::AsyncWithStmt
+                | PySyntaxKind::TryStmt
+                | PySyntaxKind::BreakStmt
+                | PySyntaxKind::ContinueStmt
+                | PySyntaxKind::ReturnStmt
+                | PySyntaxKind::YieldStmt
+                | PySyntaxKind::RaiseStmt
+                | PySyntaxKind::AssertStmt
+                | PySyntaxKind::DeleteStmt
+                | PySyntaxKind::PassStmt
+                | PySyntaxKind::GlobalStmt
+                | PySyntaxKind::NonlocalStmt
+                | PySyntaxKind::ImportStmt
+                | PySyntaxKind::ImportFromStmt
+                | PySyntaxKind::MatchStmt
+                | PySyntaxKind::ElseClause
+                | PySyntaxKind::ElifClause
         )
     }
 
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
+    fn cast(syntax: PySyntaxNode) -> Option<Self>
     where
         Self: Sized,
     {
         match syntax.kind().into() {
-            PySyntaxKind::LocalStat => Some(LuaStat::LocalStat(LuaLocalStat::cast(syntax)?)),
-            PySyntaxKind::AssignStat => Some(LuaStat::AssignStat(LuaAssignStat::cast(syntax)?)),
-            PySyntaxKind::CallExprStat => {
-                Some(LuaStat::CallExprStat(LuaCallExprStat::cast(syntax)?))
+            PySyntaxKind::ExprStmt => PyExprStmt::cast(syntax).map(PyStat::ExprStmt),
+            PySyntaxKind::AssignStmt => PyAssignStmt::cast(syntax).map(PyStat::AssignStmt),
+            PySyntaxKind::AnnAssignStmt => PyAnnAssignStmt::cast(syntax).map(PyStat::AnnAssignStmt),
+            PySyntaxKind::AugAssignStmt => PyAugAssignStmt::cast(syntax).map(PyStat::AugAssignStmt),
+            PySyntaxKind::FuncDef => PyFuncDef::cast(syntax).map(PyStat::FuncDef),
+            PySyntaxKind::AsyncFuncDef => PyAsyncFuncDef::cast(syntax).map(PyStat::AsyncFuncDef),
+            PySyntaxKind::ClassDef => PyClassDef::cast(syntax).map(PyStat::ClassDef),
+            PySyntaxKind::IfStmt => PyIfStmt::cast(syntax).map(PyStat::IfStmt),
+            PySyntaxKind::WhileStmt => PyWhileStmt::cast(syntax).map(PyStat::WhileStmt),
+            PySyntaxKind::ForStmt => PyForStmt::cast(syntax).map(PyStat::ForStmt),
+            PySyntaxKind::AsyncForStmt => PyAsyncForStmt::cast(syntax).map(PyStat::AsyncForStmt),
+            PySyntaxKind::WithStmt => PyWithStmt::cast(syntax).map(PyStat::WithStmt),
+            PySyntaxKind::AsyncWithStmt => PyAsyncWithStmt::cast(syntax).map(PyStat::AsyncWithStmt),
+            PySyntaxKind::TryStmt => PyTryStmt::cast(syntax).map(PyStat::TryStmt),
+            PySyntaxKind::BreakStmt => PyBreakStmt::cast(syntax).map(PyStat::BreakStmt),
+            PySyntaxKind::ContinueStmt => PyContinueStmt::cast(syntax).map(PyStat::ContinueStmt),
+            PySyntaxKind::ReturnStmt => PyReturnStmt::cast(syntax).map(PyStat::ReturnStmt),
+            PySyntaxKind::YieldStmt => PyYieldStmt::cast(syntax).map(PyStat::YieldStmt),
+            PySyntaxKind::RaiseStmt => PyRaiseStmt::cast(syntax).map(PyStat::RaiseStmt),
+            PySyntaxKind::AssertStmt => PyAssertStmt::cast(syntax).map(PyStat::AssertStmt),
+            PySyntaxKind::DeleteStmt => PyDeleteStmt::cast(syntax).map(PyStat::DeleteStmt),
+            PySyntaxKind::PassStmt => PyPassStmt::cast(syntax).map(PyStat::PassStmt),
+            PySyntaxKind::GlobalStmt => PyGlobalStmt::cast(syntax).map(PyStat::GlobalStmt),
+            PySyntaxKind::NonlocalStmt => PyNonlocalStmt::cast(syntax).map(PyStat::NonlocalStmt),
+            PySyntaxKind::ImportStmt => PyImportStmt::cast(syntax).map(PyStat::ImportStmt),
+            PySyntaxKind::ImportFromStmt => {
+                PyImportFromStmt::cast(syntax).map(PyStat::ImportFromStmt)
             }
-            PySyntaxKind::FuncStat => Some(LuaStat::FuncStat(LuaFuncStat::cast(syntax)?)),
-            PySyntaxKind::LocalFuncStat => {
-                Some(LuaStat::LocalFuncStat(LuaLocalFuncStat::cast(syntax)?))
-            }
-            PySyntaxKind::IfStat => Some(LuaStat::IfStat(LuaIfStat::cast(syntax)?)),
-            PySyntaxKind::WhileStat => Some(LuaStat::WhileStat(LuaWhileStat::cast(syntax)?)),
-            PySyntaxKind::DoStat => Some(LuaStat::DoStat(LuaDoStat::cast(syntax)?)),
-            PySyntaxKind::ForStat => Some(LuaStat::ForStat(LuaForStat::cast(syntax)?)),
-            PySyntaxKind::ForRangeStat => {
-                Some(LuaStat::ForRangeStat(LuaForRangeStat::cast(syntax)?))
-            }
-            PySyntaxKind::RepeatStat => Some(LuaStat::RepeatStat(LuaRepeatStat::cast(syntax)?)),
-            PySyntaxKind::BreakStat => Some(LuaStat::BreakStat(LuaBreakStat::cast(syntax)?)),
-            PySyntaxKind::ReturnStat => Some(LuaStat::ReturnStat(LuaReturnStat::cast(syntax)?)),
-            PySyntaxKind::GotoStat => Some(LuaStat::GotoStat(LuaGotoStat::cast(syntax)?)),
-            PySyntaxKind::LabelStat => Some(LuaStat::LabelStat(LuaLabelStat::cast(syntax)?)),
-            PySyntaxKind::EmptyStat => Some(LuaStat::EmptyStat(LuaEmptyStat::cast(syntax)?)),
-            PySyntaxKind::GlobalStat => Some(LuaStat::GlobalStat(LuaGlobalStat::cast(syntax)?)),
+            PySyntaxKind::MatchStmt => PyMatchStmt::cast(syntax).map(PyStat::MatchStmt),
+            PySyntaxKind::ElseClause => PyElseStmt::cast(syntax).map(PyStat::ElseStmt),
+            PySyntaxKind::ElifClause => PyElifStmt::cast(syntax).map(PyStat::ElifStmt),
             _ => None,
         }
-    }
-}
-
-impl LuaCommentOwner for LuaStat {}
-
-impl LuaStat {
-    pub fn get_parent_block(&self) -> Option<LuaBlock> {
-        LuaBlock::cast(self.syntax().parent()?)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum LuaLoopStat {
-    WhileStat(LuaWhileStat),
-    RepeatStat(LuaRepeatStat),
-    ForStat(LuaForStat),
-    ForRangeStat(LuaForRangeStat),
-}
-
-impl PyAstNode for LuaLoopStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        match self {
-            LuaLoopStat::WhileStat(node) => node.syntax(),
-            LuaLoopStat::RepeatStat(node) => node.syntax(),
-            LuaLoopStat::ForStat(node) => node.syntax(),
-            LuaLoopStat::ForRangeStat(node) => node.syntax(),
-        }
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        matches!(
-            kind,
-            PySyntaxKind::WhileStat
-                | PySyntaxKind::RepeatStat
-                | PySyntaxKind::ForStat
-                | PySyntaxKind::ForRangeStat
-        )
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if let Some(node) = LuaWhileStat::cast(syntax.clone()) {
-            Some(LuaLoopStat::WhileStat(node))
-        } else if let Some(node) = LuaRepeatStat::cast(syntax.clone()) {
-            Some(LuaLoopStat::RepeatStat(node))
-        } else if let Some(node) = LuaForStat::cast(syntax.clone()) {
-            Some(LuaLoopStat::ForStat(node))
-        } else {
-            LuaForRangeStat::cast(syntax.clone()).map(LuaLoopStat::ForRangeStat)
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaLoopStat {}
-
-impl LuaLoopStat {
-    pub fn get_parent_block(&self) -> Option<LuaBlock> {
-        LuaBlock::cast(self.syntax().parent()?)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaLocalStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaLocalStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::LocalStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::LocalStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaLocalStat {}
-
-impl LuaLocalStat {
-    pub fn get_local_name_list(&self) -> LuaAstChildren<LuaLocalName> {
-        self.children()
-    }
-
-    pub fn get_value_exprs(&self) -> LuaAstChildren<LuaExpr> {
-        self.children()
-    }
-
-    pub fn get_local_name_by_value(&self, value: LuaExpr) -> Option<LuaLocalName> {
-        let local_names = self.get_local_name_list();
-        let value_exprs = self.get_value_exprs().collect::<Vec<_>>();
-
-        for (i, local_name) in local_names.enumerate() {
-            if let Some(value_expr) = value_exprs.get(i)
-                && value_expr.syntax() == value.syntax()
-            {
-                return Some(local_name);
-            }
-        }
-        None
-    }
-
-    pub fn get_attrib(&self) -> Option<LuaLocalAttribute> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaAssignStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaAssignStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::AssignStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::AssignStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaAssignStat {}
-
-impl LuaAssignStat {
-    pub fn get_var_and_expr_list(&self) -> (Vec<LuaVarExpr>, Vec<LuaExpr>) {
-        let mut vars = Vec::new();
-        let mut exprs = Vec::new();
-        let mut meet_assign = false;
-        for child in self.syntax.children_with_tokens() {
-            if child.kind().to_token().is_assign_op() {
-                meet_assign = true;
-            }
-
-            if let Some(node) = child.into_node() {
-                if meet_assign {
-                    if let Some(var) = LuaExpr::cast(node) {
-                        exprs.push(var);
-                    }
-                } else if let Some(var) = LuaVarExpr::cast(node) {
-                    vars.push(var);
-                }
-            }
-        }
-
-        (vars, exprs)
-    }
-
-    pub fn get_assign_op(&self) -> Option<LuaGeneralToken> {
-        for child in self.syntax.children_with_tokens() {
-            if let Some(token) = child.into_token()
-                && token.kind().to_token().is_assign_op()
-            {
-                return LuaGeneralToken::cast(token);
-            }
-        }
-        None
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaCallExprStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaCallExprStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::CallExprStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::CallExprStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaCallExprStat {}
-
-impl LuaCallExprStat {
-    pub fn get_call_expr(&self) -> Option<LuaCallExpr> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaFuncStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaFuncStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::FuncStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::FuncStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaFuncStat {}
-
-impl LuaFuncStat {
-    pub fn get_func_name(&self) -> Option<LuaVarExpr> {
-        self.child()
-    }
-
-    pub fn get_closure(&self) -> Option<LuaClosureExpr> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaLocalFuncStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaLocalFuncStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::LocalFuncStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::LocalFuncStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaLocalFuncStat {}
-
-impl LuaLocalFuncStat {
-    pub fn get_local_name(&self) -> Option<LuaLocalName> {
-        self.child()
-    }
-
-    pub fn get_closure(&self) -> Option<LuaClosureExpr> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaIfStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaIfStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::IfStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::IfStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaIfStat {}
-
-impl LuaIfStat {
-    pub fn get_condition_expr(&self) -> Option<LuaExpr> {
-        self.child()
-    }
-
-    pub fn get_block(&self) -> Option<LuaBlock> {
-        self.child()
-    }
-
-    pub fn get_else_if_clause_list(&self) -> LuaAstChildren<LuaElseIfClauseStat> {
-        self.children()
-    }
-
-    pub fn get_else_clause(&self) -> Option<LuaElseClauseStat> {
-        self.child()
-    }
-
-    pub fn get_all_clause(&self) -> LuaAstChildren<LuaIfClauseStat> {
-        self.children()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaElseIfClauseStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaElseIfClauseStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::ElseIfClauseStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::ElseIfClauseStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaElseIfClauseStat {}
-
-impl LuaElseIfClauseStat {
-    pub fn get_condition_expr(&self) -> Option<LuaExpr> {
-        self.child()
-    }
-
-    pub fn get_block(&self) -> Option<LuaBlock> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaElseClauseStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaElseClauseStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::ElseClauseStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::ElseClauseStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaElseClauseStat {}
-
-impl LuaElseClauseStat {
-    pub fn get_block(&self) -> Option<LuaBlock> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum LuaIfClauseStat {
-    ElseIf(LuaElseIfClauseStat),
-    Else(LuaElseClauseStat),
-}
-
-impl PyAstNode for LuaIfClauseStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        match self {
-            LuaIfClauseStat::ElseIf(node) => node.syntax(),
-            LuaIfClauseStat::Else(node) => node.syntax(),
-        }
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        LuaElseIfClauseStat::can_cast(kind) || LuaElseClauseStat::can_cast(kind)
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if LuaElseIfClauseStat::can_cast(syntax.kind().into()) {
-            Some(LuaIfClauseStat::ElseIf(LuaElseIfClauseStat::cast(syntax)?))
-        } else if LuaElseClauseStat::can_cast(syntax.kind().into()) {
-            Some(LuaIfClauseStat::Else(LuaElseClauseStat::cast(syntax)?))
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaIfClauseStat {}
-
-impl LuaIfClauseStat {
-    pub fn get_parent_if_stat(&self) -> Option<LuaIfStat> {
-        LuaIfStat::cast(self.syntax().parent()?)
-    }
-
-    pub fn get_block(&self) -> Option<LuaBlock> {
-        match self {
-            LuaIfClauseStat::ElseIf(node) => node.get_block(),
-            LuaIfClauseStat::Else(node) => node.get_block(),
-        }
-    }
-
-    pub fn get_condition_expr(&self) -> Option<LuaExpr> {
-        match self {
-            LuaIfClauseStat::ElseIf(node) => node.get_condition_expr(),
-            LuaIfClauseStat::Else(_) => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaWhileStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaWhileStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::WhileStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::WhileStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaWhileStat {}
-
-impl LuaWhileStat {
-    pub fn get_condition_expr(&self) -> Option<LuaExpr> {
-        self.child()
-    }
-
-    pub fn get_block(&self) -> Option<LuaBlock> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaDoStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaDoStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::DoStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::DoStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaDoStat {}
-
-impl LuaDoStat {
-    pub fn get_block(&self) -> Option<LuaBlock> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaForStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaForStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::ForStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::ForStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaForStat {}
-
-impl LuaForStat {
-    pub fn get_var_name(&self) -> Option<LuaNameToken> {
-        self.token()
-    }
-
-    pub fn get_iter_expr(&self) -> LuaAstChildren<LuaExpr> {
-        self.children()
-    }
-
-    pub fn get_block(&self) -> Option<LuaBlock> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaForRangeStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaForRangeStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::ForRangeStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::ForRangeStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaForRangeStat {}
-
-impl LuaForRangeStat {
-    pub fn get_var_name_list(&self) -> LuaAstTokenChildren<LuaNameToken> {
-        self.tokens()
-    }
-
-    pub fn get_expr_list(&self) -> LuaAstChildren<LuaExpr> {
-        self.children()
-    }
-
-    pub fn get_block(&self) -> Option<LuaBlock> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaRepeatStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaRepeatStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::RepeatStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::RepeatStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaRepeatStat {}
-
-impl LuaRepeatStat {
-    pub fn get_block(&self) -> Option<LuaBlock> {
-        self.child()
-    }
-
-    pub fn get_condition_expr(&self) -> Option<LuaExpr> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaBreakStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaBreakStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::BreakStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::BreakStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaBreakStat {}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaReturnStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaReturnStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::ReturnStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::ReturnStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaReturnStat {}
-
-impl LuaReturnStat {
-    pub fn get_expr_list(&self) -> LuaAstChildren<LuaExpr> {
-        self.children()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaGotoStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaGotoStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::GotoStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::GotoStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaGotoStat {}
-
-impl LuaGotoStat {
-    pub fn get_label_name_token(&self) -> Option<LuaNameToken> {
-        self.token()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaLabelStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaLabelStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::LabelStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::LabelStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaLabelStat {}
-
-impl LuaLabelStat {
-    pub fn get_label_name_token(&self) -> Option<LuaNameToken> {
-        self.token()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaEmptyStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaEmptyStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::EmptyStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::EmptyStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaEmptyStat {}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaGlobalStat {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaGlobalStat {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::GlobalStat
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::GlobalStat.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaGlobalStat {}
-
-impl LuaGlobalStat {
-    pub fn get_local_name_list(&self) -> LuaAstChildren<LuaLocalName> {
-        self.children()
-    }
-
-    pub fn get_attrib(&self) -> Option<LuaLocalAttribute> {
-        self.child()
     }
 }

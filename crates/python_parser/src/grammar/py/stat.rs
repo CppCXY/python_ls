@@ -28,7 +28,7 @@ fn parse_suite_with_docstring(p: &mut PyParser, expect_docstring: bool) -> Parse
         let docstring_m = p.mark(PySyntaxKind::Docstring);
         p.bump(); // consume string literal
         docstring_m.complete(p);
-        
+
         // Consume newline after docstring
         if p.current_token() == PyTokenKind::TkNewline {
             p.bump();
@@ -271,11 +271,9 @@ fn parse_while(p: &mut PyParser) -> ParseResult {
     }
 
     // Expect ':'
-    if !expect_keyword_with_recovery(
-        p,
-        PyTokenKind::TkColon,
-        || t!("expected ':' after while condition"),
-    ) {
+    if !expect_keyword_with_recovery(p, PyTokenKind::TkColon, || {
+        t!("expected ':' after while condition")
+    }) {
         recover_to_keywords(p, &[PyTokenKind::TkIndent]);
     }
 
@@ -359,7 +357,7 @@ fn parse_for_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
 fn parse_return(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::ReturnStmt);
     p.bump(); // consume 'return'
-    
+
     // Optional return value
     if !matches!(
         p.current_token(),
@@ -914,11 +912,11 @@ fn parse_assign_or_expr_stat(p: &mut PyParser) -> ParseResult {
 // Parse decorators
 fn parse_decorators(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::Decorators);
-    
+
     while p.current_token() == PyTokenKind::TkAt {
         let decorator_m = p.mark(PySyntaxKind::Decorator);
         p.bump(); // consume '@'
-        
+
         // Parse the decorator expression
         if parse_expr(p).is_err() {
             p.push_error(PyParseError::syntax_error_from(
@@ -926,22 +924,22 @@ fn parse_decorators(p: &mut PyParser) -> ParseResult {
                 p.current_token_range(),
             ));
         }
-        
+
         // Expect newline
         if p.current_token() == PyTokenKind::TkNewline {
             p.bump();
         }
-        
+
         decorator_m.complete(p);
     }
-    
+
     Ok(m.complete(p))
 }
 
 // Parse decorated function or class
 fn parse_decorated(p: &mut PyParser) -> ParseResult {
     parse_decorators(p)?;
-    
+
     match p.current_token() {
         PyTokenKind::TkDef => parse_def(p),
         PyTokenKind::TkClass => parse_class(p),
@@ -974,7 +972,7 @@ fn parse_def_with_decorators(p: &mut PyParser) -> ParseResult {
     parse_def(p)
 }
 
-// Parse class definition with optional decorators  
+// Parse class definition with optional decorators
 fn parse_class_with_decorators(p: &mut PyParser) -> ParseResult {
     parse_class(p)
 }
@@ -983,7 +981,7 @@ fn parse_class_with_decorators(p: &mut PyParser) -> ParseResult {
 fn parse_match(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::MatchStmt);
     p.bump(); // consume 'match'
-    
+
     // Parse the subject expression
     if parse_expr(p).is_err() {
         p.push_error(PyParseError::syntax_error_from(
@@ -991,7 +989,7 @@ fn parse_match(p: &mut PyParser) -> ParseResult {
             p.current_token_range(),
         ));
     }
-    
+
     // Expect ':'
     if p.current_token() == PyTokenKind::TkColon {
         p.bump();
@@ -1001,20 +999,20 @@ fn parse_match(p: &mut PyParser) -> ParseResult {
             p.current_token_range(),
         ));
     }
-    
+
     // Parse case clauses
     if p.current_token() == PyTokenKind::TkIndent {
         p.bump();
-        
+
         while p.current_token() == PyTokenKind::TkCase {
             parse_case_clause(p)?;
         }
-        
+
         if p.current_token() == PyTokenKind::TkDedent {
             p.bump();
         }
     }
-    
+
     Ok(m.complete(p))
 }
 
@@ -1022,7 +1020,7 @@ fn parse_match(p: &mut PyParser) -> ParseResult {
 fn parse_case_clause(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::CaseClause);
     p.bump(); // consume 'case'
-    
+
     // Parse pattern
     if parse_expr(p).is_err() {
         p.push_error(PyParseError::syntax_error_from(
@@ -1030,7 +1028,7 @@ fn parse_case_clause(p: &mut PyParser) -> ParseResult {
             p.current_token_range(),
         ));
     }
-    
+
     // Optional guard (if clause)
     if p.current_token() == PyTokenKind::TkIf {
         p.bump();
@@ -1041,7 +1039,7 @@ fn parse_case_clause(p: &mut PyParser) -> ParseResult {
             ));
         }
     }
-    
+
     // Expect ':'
     if p.current_token() == PyTokenKind::TkColon {
         p.bump();
@@ -1051,11 +1049,11 @@ fn parse_case_clause(p: &mut PyParser) -> ParseResult {
             p.current_token_range(),
         ));
     }
-    
+
     // Parse suite
     if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
     }
-    
+
     Ok(m.complete(p))
 }

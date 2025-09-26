@@ -5,97 +5,96 @@ use core::fmt;
 pub enum PyTokenKind {
     None,
     // Python Keywords
-    TkAnd,       // and
-    TkAs,        // as
-    TkAssert,    // assert
-    TkAsync,     // async
-    TkAwait,     // await
-    TkBreak,     // break
-    TkClass,     // class
-    TkContinue,  // continue
-    TkDef,       // def
-    TkDel,       // del
-    TkElif,      // elif
-    TkElse,      // else
-    TkExcept,    // except
-    TkFalse,     // False
-    TkFinally,   // finally
-    TkFor,       // for
-    TkFrom,      // from
-    TkGlobal,    // global
-    TkIf,        // if
-    TkImport,    // import
-    TkIn,        // in
-    TkIs,        // is
-    TkLambda,    // lambda
-    TkMatch,     // match
-    TkCase,      // case
-    TkNonlocal,  // nonlocal
-    TkNone,      // None
-    TkNot,       // not
-    TkOr,        // or
-    TkPass,      // pass
-    TkRaise,     // raise
-    TkReturn,    // return
-    TkTry,       // try
-    TkTrue,      // True
-    TkWhile,     // while
-    TkWith,      // with
-    TkYield,     // yield
+    TkAnd,      // and
+    TkAs,       // as
+    TkAssert,   // assert
+    TkAsync,    // async
+    TkAwait,    // await
+    TkBreak,    // break
+    TkClass,    // class
+    TkContinue, // continue
+    TkDef,      // def
+    TkDel,      // del
+    TkElif,     // elif
+    TkElse,     // else
+    TkExcept,   // except
+    TkFalse,    // False
+    TkFinally,  // finally
+    TkFor,      // for
+    TkFrom,     // from
+    TkGlobal,   // global
+    TkIf,       // if
+    TkImport,   // import
+    TkIn,       // in
+    TkIs,       // is
+    TkLambda,   // lambda
+    TkMatch,    // match
+    TkCase,     // case
+    TkNonlocal, // nonlocal
+    TkNone,     // None
+    TkNot,      // not
+    TkOr,       // or
+    TkPass,     // pass
+    TkRaise,    // raise
+    TkReturn,   // return
+    TkTry,      // try
+    TkTrue,     // True
+    TkWhile,    // while
+    TkWith,     // with
+    TkYield,    // yield
 
     TkWhitespace, // whitespace
     TkNewline,    // \n
-    
-    // Operators
-    TkPlus,       // +
-    TkMinus,      // -
-    TkMul,        // *
-    TkDiv,        // /
-    TkFloorDiv,   // //
-    TkMod,        // %
-    TkPow,        // **
-    TkMatMul,     // @ (matrix multiplication)
-    
-    // Bitwise operators
-    TkBitAnd,     // &
-    TkBitOr,      // |
-    TkBitXor,     // ^
-    TkBitNot,     // ~
-    TkShl,        // <<
-    TkShr,        // >>
-    
-    // Comparison operators
-    TkEq,         // ==
-    TkNe,         // !=
-    TkLt,         // <
-    TkLe,         // <=
-    TkGt,         // >
-    TkGe,         // >=
-    
-    // Assignment operators
-    TkAssign,     // =
-    TkPlusAssign,        // +=
-    TkMinusAssign,       // -=
-    TkMulAssign,         // *=
-    TkDivAssign,         // /=
-    TkFloorDivAssign,    // //=
-    TkModAssign,         // %=
-    TkPowAssign,         // **=
-    TkMatMulAssign,      // @=
-    TkBitAndAssign,      // &=
-    TkBitOrAssign,       // |=
-    TkBitXorAssign,      // ^=
-    TkShlAssign,         // <<=
-    TkShrAssign,         // >>=
-    
-    // Delimiters
-    TkDot,        // .
-    TkComma,      // ,
-    TkColon,      // :
-    TkSemicolon,  // ;
-    TkArrow,      // ->
-    TkAt,         // @
 
+    // Operators
+    TkPlus,     // +
+    TkMinus,    // -
+    TkMul,      // *
+    TkDiv,      // /
+    TkFloorDiv, // //
+    TkMod,      // %
+    TkPow,      // **
+    TkMatMul,   // @ (matrix multiplication)
+
+    // Bitwise operators
+    TkBitAnd, // &
+    TkBitOr,  // |
+    TkBitXor, // ^
+    TkBitNot, // ~
+    TkShl,    // <<
+    TkShr,    // >>
+
+    // Comparison operators
+    TkEq, // ==
+    TkNe, // !=
+    TkLt, // <
+    TkLe, // <=
+    TkGt, // >
+    TkGe, // >=
+
+    // Assignment operators
+    TkAssign,         // =
+    TkPlusAssign,     // +=
+    TkMinusAssign,    // -=
+    TkMulAssign,      // *=
+    TkDivAssign,      // /=
+    TkFloorDivAssign, // //=
+    TkModAssign,      // %=
+    TkPowAssign,      // **=
+    TkMatMulAssign,   // @=
+    TkBitAndAssign,   // &=
+    TkBitOrAssign,    // |=
+    TkBitXorAssign,   // ^=
+    TkShlAssign,      // <<=
+    TkShrAssign,      // >>=
+
+    // Delimiters
+    TkDot,       // .
+    TkComma,     // ,
+    TkColon,     // :
+    TkSemicolon, // ;
+    TkArrow,     // ->
+    TkAt,        // @
 
     // Brackets
     TkLeftBracket,  // [
@@ -104,31 +103,31 @@ pub enum PyTokenKind {
     TkRightParen,   // )
     TkLeftBrace,    // {
     TkRightBrace,   // }
-    
+
     // Literals
-    TkInt,          // integer literal
-    TkFloat,        // float literal
-    TkComplex,      // complex literal
-    TkString,       // string literal
-    TkBytes,        // bytes literal
-    TkFString,      // f-string literal
-    TkRawString,    // raw string literal
-    
+    TkInt,            // integer literal
+    TkFloat,          // float literal
+    TkComplex,        // complex literal
+    TkString,         // string literal
+    TkBytesString,    // bytes literal
+    TkRawBytesString, // raw bytes literal
+    TkFString,        // f-string literal
+    TkRawString,      // raw string literal
+    TkEllipsis,       // ... (ellipsis literal)
+
     // Identifiers and Names
-    TkName,         // identifier/name
-    TkIndent,       // indentation
-    TkDedent,       // dedentation
-    
+    TkName,   // identifier/name
+    TkIndent, // indentation
+    TkDedent, // dedentation
+
     // Comments
-    TkComment,      // # comment
-    TkShebang,      // shebang
-    
+    TkComment, // # comment
+    TkShebang, // shebang
+
     // Special
-    TkEof,          // end of file
-    TkUnknown,      // unknown token
-    TkErrorToken,   // error token
-
-
+    TkEof,        // end of file
+    TkUnknown,    // unknown token
+    TkErrorToken, // error token
 }
 
 impl fmt::Display for PyTokenKind {

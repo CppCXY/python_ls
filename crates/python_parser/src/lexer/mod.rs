@@ -1,6 +1,7 @@
 mod lexer_config;
 mod py_doc_lexer;
 mod py_lexer;
+mod test;
 mod token_data;
 
 pub use lexer_config::LexerConfig;

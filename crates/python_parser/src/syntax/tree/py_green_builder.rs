@@ -65,7 +65,7 @@ impl PyGreenNodeBuilder<'_> {
         let mut child_end = self.children.len() - 1;
         let child_count = self.children.len();
         let green = match parent_kind {
-            PySyntaxKind::Suite | PySyntaxKind::Chunk => {
+            PySyntaxKind::Suite | PySyntaxKind::Module => {
                 while child_start > 0 {
                     if self.is_trivia(self.children[child_start - 1]) {
                         child_start -= 1;
@@ -84,7 +84,7 @@ impl PyGreenNodeBuilder<'_> {
                     children,
                 }
             }
-            PySyntaxKind::Comment | PySyntaxKind::TypeMultiLineUnion => {
+            PySyntaxKind::Comment => {
                 while child_start < child_count {
                     if self.is_trivia_whitespace(self.children[child_start]) {
                         child_start += 1;
@@ -151,12 +151,10 @@ impl PyGreenNodeBuilder<'_> {
             matches!(
                 element,
                 PyGreenElement::Token {
-                    kind: PyTokenKind::TkWhitespace
-                        | PyTokenKind::TkEndOfLine
-                        | PyTokenKind::TkDocContinue,
+                    kind: PyTokenKind::TkWhitespace | PyTokenKind::TkNewline,
                     ..
                 } | PyGreenElement::Node {
-                    kind: PySyntaxKind::Comment | PySyntaxKind::DocDescription,
+                    kind: PySyntaxKind::Comment,
                     ..
                 }
             )
@@ -168,7 +166,7 @@ impl PyGreenNodeBuilder<'_> {
             matches!(
                 element,
                 PyGreenElement::Token {
-                    kind: PyTokenKind::TkWhitespace | PyTokenKind::TkEndOfLine,
+                    kind: PyTokenKind::TkWhitespace,
                     ..
                 }
             )
@@ -227,7 +225,7 @@ impl PyGreenNodeBuilder<'_> {
             let is_chunk_root = matches!(
                 self.elements[*root_pos],
                 PyGreenElement::Node {
-                    kind: PySyntaxKind::Chunk,
+                    kind: PySyntaxKind::Module,
                     ..
                 }
             );

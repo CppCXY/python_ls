@@ -1,494 +1,43 @@
-mod expr;
-mod path_trait;
-mod stat;
-mod test;
+pub mod common;
+pub mod expr;
+pub mod stat;
 
-use crate::{
-    LuaCommentOwner, LuaSyntaxNode,
-    kind::{PySyntaxKind, PyTokenKind},
-    syntax::traits::{LuaAstChildren, PyAstNode, LuaAstToken},
-};
-
+pub use common::*;
 pub use expr::*;
-pub use path_trait::*;
-use rowan::TextRange;
 pub use stat::*;
 
-use super::{LuaLiteralToken, LuaNameToken, LuaNumberToken, LuaStringToken};
+use crate::{
+    kind::PySyntaxKind,
+    syntax::node::{PyAstNode, PySyntaxNode},
+};
 
+// Simplified PyAst enum for core Python node types
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaChunk {
-    syntax: LuaSyntaxNode,
+pub enum PyAst {
+    // Core structural nodes
+    Module(PyModule),
+    Suite(PySuite),
+    Parameter(PyParameter),
+    Arguments(PyArguments),
+    Decorator(PyDecorator),
+
+    // Statement union
+    Stat(PyStat),
+
+    // Expression union
+    Expr(PyExpr),
 }
 
-impl PyAstNode for LuaChunk {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::Chunk
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::Chunk.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaChunk {
-    pub fn get_block(&self) -> Option<LuaBlock> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaBlock {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaBlock {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::Suite
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if syntax.kind() == PySyntaxKind::Suite.into() {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaBlock {
-    pub fn get_stats(&self) -> LuaAstChildren<LuaStat> {
-        self.children()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaLocalName {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaLocalName {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::LocalName
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if Self::can_cast(syntax.kind().into()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaLocalName {
-    pub fn get_name_token(&self) -> Option<LuaNameToken> {
-        self.token()
-    }
-
-    pub fn get_attrib(&self) -> Option<LuaLocalAttribute> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaCallArgList {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaCallArgList {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::CallArgList
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if Self::can_cast(syntax.kind().into()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCallArgList {
-    pub fn is_single_arg_no_parens(&self) -> bool {
-        self.token_by_kind(PyTokenKind::TkLeftParen).is_none()
-    }
-
-    pub fn get_args(&self) -> LuaAstChildren<LuaExpr> {
-        self.children()
-    }
-
-    pub fn get_single_arg_expr(&self) -> Option<LuaSingleArgExpr> {
-        self.child()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaLocalAttribute {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaLocalAttribute {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::Attribute
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if Self::can_cast(syntax.kind().into()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaLocalAttribute {
-    pub fn get_name_token(&self) -> Option<LuaNameToken> {
-        self.token()
-    }
-
-    pub fn is_close(&self) -> bool {
-        match self.get_name_token() {
-            None => false,
-            Some(name_token) => name_token.get_name_text() == "close",
-        }
-    }
-
-    pub fn is_const(&self) -> bool {
-        match self.get_name_token() {
-            None => false,
-            Some(name_token) => name_token.get_name_text() == "const",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaTableField {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaTableField {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::TableFieldAssign || kind == PySyntaxKind::TableFieldValue
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if Self::can_cast(syntax.kind().into()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaCommentOwner for LuaTableField {}
-
-impl LuaTableField {
-    /// TableFieldAssign: { a = "a" }
-    pub fn is_assign_field(&self) -> bool {
-        self.syntax().kind() == PySyntaxKind::TableFieldAssign.into()
-    }
-
-    /// TableFieldValue: { "a" }
-    pub fn is_value_field(&self) -> bool {
-        self.syntax().kind() == PySyntaxKind::TableFieldValue.into()
-    }
-
-    pub fn get_field_key(&self) -> Option<LuaIndexKey> {
-        if !self.is_assign_field() {
-            let parent_table = self.get_parent::<LuaTableExpr>()?;
-            let fields = parent_table.get_fields();
-            let mut idx = 1;
-            for field in fields {
-                if field.is_value_field() {
-                    if field.syntax() == self.syntax() {
-                        return Some(LuaIndexKey::Idx(idx));
-                    }
-                    idx += 1;
-                }
-            }
-
-            return None;
-        }
-
-        let mut meet_left_bracket = false;
-        for child in self.syntax.children_with_tokens() {
-            if meet_left_bracket {
-                match child {
-                    rowan::NodeOrToken::Node(node) => {
-                        if LuaLiteralExpr::can_cast(node.kind().into()) {
-                            let literal_expr = LuaLiteralExpr::cast(node.clone()).unwrap();
-                            if let Some(literal_token) = literal_expr.get_literal() {
-                                match literal_token {
-                                    LuaLiteralToken::String(token) => {
-                                        return Some(LuaIndexKey::String(token.clone()));
-                                    }
-                                    LuaLiteralToken::Number(token) => {
-                                        return Some(LuaIndexKey::Integer(token.clone()));
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
-
-                        return Some(LuaIndexKey::Expr(LuaExpr::cast(node).unwrap()));
-                    }
-                    _ => return None,
-                }
-            } else if let Some(token) = child.as_token() {
-                if token.kind() == PyTokenKind::TkLeftBracket.into() {
-                    meet_left_bracket = true;
-                } else if token.kind() == PyTokenKind::TkName.into() {
-                    return Some(LuaIndexKey::Name(
-                        LuaNameToken::cast(token.clone()).unwrap(),
-                    ));
-                }
-            }
-        }
-
-        None
-    }
-
-    pub fn get_value_expr(&self) -> Option<LuaExpr> {
-        if self.is_assign_field() {
-            self.children().last()
-        } else {
-            self.child()
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum LuaIndexKey {
-    Name(LuaNameToken),
-    String(LuaStringToken),
-    Integer(LuaNumberToken),
-    Expr(LuaExpr),
-    Idx(usize),
-}
-
-impl LuaIndexKey {
-    pub fn is_name(&self) -> bool {
-        matches!(self, LuaIndexKey::Name(_))
-    }
-
-    pub fn is_string(&self) -> bool {
-        matches!(self, LuaIndexKey::String(_))
-    }
-
-    pub fn is_integer(&self) -> bool {
-        matches!(self, LuaIndexKey::Integer(_))
-    }
-
-    pub fn is_expr(&self) -> bool {
-        matches!(self, LuaIndexKey::Expr(_))
-    }
-
-    pub fn get_name(&self) -> Option<&LuaNameToken> {
+impl PyAstNode for PyAst {
+    fn syntax(&self) -> &PySyntaxNode {
         match self {
-            LuaIndexKey::Name(token) => Some(token),
-            _ => None,
-        }
-    }
-
-    pub fn get_string(&self) -> Option<&LuaStringToken> {
-        match self {
-            LuaIndexKey::String(token) => Some(token),
-            _ => None,
-        }
-    }
-
-    pub fn get_integer(&self) -> Option<&LuaNumberToken> {
-        match self {
-            LuaIndexKey::Integer(token) => Some(token),
-            _ => None,
-        }
-    }
-
-    pub fn get_expr(&self) -> Option<&LuaExpr> {
-        match self {
-            LuaIndexKey::Expr(expr) => Some(expr),
-            _ => None,
-        }
-    }
-
-    pub fn get_path_part(&self) -> String {
-        match self {
-            LuaIndexKey::String(s) => s.get_value(),
-            LuaIndexKey::Name(name) => name.get_name_text().to_string(),
-            LuaIndexKey::Integer(i) => {
-                format!("[{}]", i.get_int_value())
-            }
-            LuaIndexKey::Expr(expr) => {
-                format!("[{}]", expr.syntax().text())
-            }
-            LuaIndexKey::Idx(i) => {
-                format!("[{}]", i)
-            }
-        }
-    }
-
-    pub fn get_range(&self) -> Option<TextRange> {
-        match self {
-            LuaIndexKey::Name(token) => Some(token.get_range()),
-            LuaIndexKey::String(token) => Some(token.get_range()),
-            LuaIndexKey::Integer(token) => Some(token.get_range()),
-            LuaIndexKey::Expr(expr) => Some(expr.syntax().text_range()),
-            LuaIndexKey::Idx(_) => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaParamName {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaParamName {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::ParamName
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if Self::can_cast(syntax.kind().into()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaParamName {
-    pub fn get_name_token(&self) -> Option<LuaNameToken> {
-        self.token()
-    }
-
-    pub fn is_dots(&self) -> bool {
-        self.token_by_kind(PyTokenKind::TkDots).is_some()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LuaParamList {
-    syntax: LuaSyntaxNode,
-}
-
-impl PyAstNode for LuaParamList {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        &self.syntax
-    }
-
-    fn can_cast(kind: PySyntaxKind) -> bool
-    where
-        Self: Sized,
-    {
-        kind == PySyntaxKind::ParamList
-    }
-
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        if Self::can_cast(syntax.kind().into()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-}
-
-impl LuaParamList {
-    pub fn get_params(&self) -> LuaAstChildren<LuaParamName> {
-        self.children()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum LuaIndexMemberExpr {
-    IndexExpr(LuaIndexExpr),
-    TableField(LuaTableField),
-}
-
-impl PyAstNode for LuaIndexMemberExpr {
-    fn syntax(&self) -> &LuaSyntaxNode {
-        match self {
-            LuaIndexMemberExpr::IndexExpr(expr) => expr.syntax(),
-            LuaIndexMemberExpr::TableField(field) => field.syntax(),
+            PyAst::Module(node) => node.syntax(),
+            PyAst::Suite(node) => node.syntax(),
+            PyAst::Parameter(node) => node.syntax(),
+            PyAst::Arguments(node) => node.syntax(),
+            PyAst::Decorator(node) => node.syntax(),
+            PyAst::Stat(node) => node.syntax(),
+            PyAst::Expr(node) => node.syntax(),
         }
     }
 
@@ -496,49 +45,35 @@ impl PyAstNode for LuaIndexMemberExpr {
     where
         Self: Sized,
     {
-        LuaIndexExpr::can_cast(kind) || LuaTableField::can_cast(kind)
+        PyModule::can_cast(kind)
+            || PySuite::can_cast(kind)
+            || PyParameter::can_cast(kind)
+            || PyArguments::can_cast(kind)
+            || PyDecorator::can_cast(kind)
+            || PyStat::can_cast(kind)
+            || PyExpr::can_cast(kind)
     }
 
-    fn cast(syntax: LuaSyntaxNode) -> Option<Self>
+    fn cast(syntax: PySyntaxNode) -> Option<Self>
     where
         Self: Sized,
     {
-        if LuaIndexExpr::can_cast(syntax.kind().into()) {
-            Some(Self::IndexExpr(LuaIndexExpr::cast(syntax).unwrap()))
-        } else if LuaTableField::can_cast(syntax.kind().into()) {
-            Some(Self::TableField(LuaTableField::cast(syntax).unwrap()))
+        if let Some(module) = PyModule::cast(syntax.clone()) {
+            Some(PyAst::Module(module))
+        } else if let Some(suite) = PySuite::cast(syntax.clone()) {
+            Some(PyAst::Suite(suite))
+        } else if let Some(param) = PyParameter::cast(syntax.clone()) {
+            Some(PyAst::Parameter(param))
+        } else if let Some(args) = PyArguments::cast(syntax.clone()) {
+            Some(PyAst::Arguments(args))
+        } else if let Some(decorator) = PyDecorator::cast(syntax.clone()) {
+            Some(PyAst::Decorator(decorator))
+        } else if let Some(stat) = PyStat::cast(syntax.clone()) {
+            Some(PyAst::Stat(stat))
+        } else if let Some(expr) = PyExpr::cast(syntax.clone()) {
+            Some(PyAst::Expr(expr))
         } else {
             None
-        }
-    }
-}
-
-impl LuaIndexMemberExpr {
-    pub fn get_index_expr(&self) -> Option<LuaIndexExpr> {
-        match self {
-            LuaIndexMemberExpr::IndexExpr(expr) => Some(expr.clone()),
-            _ => None,
-        }
-    }
-
-    pub fn get_table_field(&self) -> Option<LuaTableField> {
-        match self {
-            LuaIndexMemberExpr::TableField(field) => Some(field.clone()),
-            _ => None,
-        }
-    }
-
-    pub fn get_index_key(&self) -> Option<LuaIndexKey> {
-        match self {
-            LuaIndexMemberExpr::IndexExpr(expr) => expr.get_index_key(),
-            LuaIndexMemberExpr::TableField(field) => field.get_field_key(),
-        }
-    }
-
-    pub fn get_prefix_expr(&self) -> Option<LuaExpr> {
-        match self {
-            LuaIndexMemberExpr::IndexExpr(expr) => expr.get_prefix_expr(),
-            LuaIndexMemberExpr::TableField(field) => field.get_parent(),
         }
     }
 }

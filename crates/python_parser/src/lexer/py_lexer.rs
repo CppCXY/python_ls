@@ -1,14 +1,12 @@
-use crate::{
-    kind::PyTokenKind, parser_error::PyParseError, text::Reader,
-};
+use crate::{kind::PyTokenKind, parser_error::PyParseError, text::Reader};
 
 use super::{is_name_continue, is_name_start, lexer_config::LexerConfig, token_data::PyTokenData};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LexerState {
     Normal,
-    String(char),      // quote character
-    TripleString(char), // quote character for triple-quoted strings
+    String(char, PyTokenKind),       // quote character and string type
+    TripleString(char, PyTokenKind), // quote character and string type for triple-quoted strings
 }
 
 #[derive(Debug, Clone)]
@@ -62,21 +60,29 @@ impl<'a> PyLexer<'a> {
             // Handle pending dedents
             if self.indent_info.pending_dedents > 0 {
                 self.indent_info.pending_dedents -= 1;
-                tokens.push(PyTokenData::new(PyTokenKind::TkDedent, self.reader.current_range()));
+                tokens.push(PyTokenData::new(
+                    PyTokenKind::TkDedent,
+                    self.reader.current_range(),
+                ));
                 continue;
             }
 
             let kind = match self.state {
                 LexerState::Normal => self.lex(),
-                LexerState::String(quote) => self.lex_string(quote),
-                LexerState::TripleString(quote) => self.lex_triple_string(quote),
+                LexerState::String(quote, string_type) => self.lex_string(quote, string_type),
+                LexerState::TripleString(quote, string_type) => {
+                    self.lex_triple_string(quote, string_type)
+                }
             };
-            
+
             if kind == PyTokenKind::TkEof {
                 // Generate final dedents
                 while self.indent_info.indent_stack.len() > 1 {
                     self.indent_info.indent_stack.pop();
-                    tokens.push(PyTokenData::new(PyTokenKind::TkDedent, self.reader.current_range()));
+                    tokens.push(PyTokenData::new(
+                        PyTokenKind::TkDedent,
+                        self.reader.current_range(),
+                    ));
                 }
                 break;
             }
@@ -226,24 +232,38 @@ impl<'a> PyLexer<'a> {
             '"' | '\'' => {
                 let quote = self.reader.current_char();
                 self.reader.bump();
-                
+
                 // Check for triple-quoted strings
                 if self.reader.current_char() == quote && self.reader.next_char() == quote {
                     self.reader.bump(); // second quote
                     self.reader.bump(); // third quote
-                    self.state = LexerState::TripleString(quote);
-                    self.lex_triple_string(quote)
+                    self.state = LexerState::TripleString(quote, PyTokenKind::TkString);
+                    self.lex_triple_string(quote, PyTokenKind::TkString)
                 } else {
-                    self.state = LexerState::String(quote);
-                    self.lex_string(quote)
+                    self.state = LexerState::String(quote, PyTokenKind::TkString);
+                    self.lex_string(quote, PyTokenKind::TkString)
                 }
             }
             '.' => {
                 if self.reader.next_char().is_ascii_digit() {
                     return self.lex_number();
                 }
-                self.reader.bump();
-                PyTokenKind::TkDot
+
+                // Check for ellipsis (...)
+                if self.reader.next_char() == '.' {
+                    self.reader.bump(); // consume first '.'
+                    if self.reader.current_char() == '.' && self.reader.next_char() == '.' {
+                        self.reader.bump(); // consume second '.'
+                        self.reader.bump(); // consume third '.'
+                        PyTokenKind::TkEllipsis
+                    } else {
+                        // We already consumed one dot, return TkDot
+                        PyTokenKind::TkDot
+                    }
+                } else {
+                    self.reader.bump();
+                    PyTokenKind::TkDot
+                }
             }
             '0'..='9' => self.lex_number(),
             '/' => {
@@ -329,7 +349,7 @@ impl<'a> PyLexer<'a> {
                     self.reader.bump();
                     PyTokenKind::TkNe
                 } else {
-                    PyTokenKind::TkUnknown  // ! is not a valid operator in Python by itself
+                    PyTokenKind::TkUnknown // ! is not a valid operator in Python by itself
                 }
             }
             '&' => {
@@ -392,7 +412,13 @@ impl<'a> PyLexer<'a> {
                 self.reader.bump();
                 self.reader.eat_while(is_name_continue);
                 let name = self.reader.current_text();
-                self.name_to_kind(name)
+
+                // Check if this is a string prefix
+                if let Some(string_token) = self.try_parse_prefixed_string(name) {
+                    string_token
+                } else {
+                    self.name_to_kind(name)
+                }
             }
             _ => {
                 self.reader.bump();
@@ -403,7 +429,7 @@ impl<'a> PyLexer<'a> {
 
     fn handle_indentation(&mut self) -> PyTokenKind {
         let mut indent_level = 0;
-        
+
         // Skip whitespace and count indentation
         while matches!(self.reader.current_char(), ' ' | '\t') {
             if self.reader.current_char() == ' ' {
@@ -413,17 +439,17 @@ impl<'a> PyLexer<'a> {
             }
             self.reader.bump();
         }
-        
+
         // If we hit a comment or newline, ignore this line
         if matches!(self.reader.current_char(), '#' | '\n' | '\r') || self.reader.is_eof() {
             self.indent_info.at_line_start = false;
             return self.lex();
         }
-        
+
         self.indent_info.at_line_start = false;
-        
+
         let current_indent = *self.indent_info.indent_stack.last().unwrap();
-        
+
         if indent_level > current_indent {
             // Increased indentation
             self.indent_info.indent_stack.push(indent_level);
@@ -438,7 +464,7 @@ impl<'a> PyLexer<'a> {
                 self.indent_info.indent_stack.pop();
                 dedent_count += 1;
             }
-            
+
             if dedent_count > 0 {
                 self.indent_info.pending_dedents = dedent_count - 1;
                 PyTokenKind::TkDedent
@@ -480,7 +506,7 @@ impl<'a> PyLexer<'a> {
         PyTokenKind::TkWhitespace
     }
 
-    fn lex_triple_string(&mut self, quote: char) -> PyTokenKind {
+    fn lex_triple_string(&mut self, quote: char, string_type: PyTokenKind) -> PyTokenKind {
         while !self.reader.is_eof() {
             if self.reader.current_char() == quote {
                 self.reader.bump(); // consume first quote
@@ -489,13 +515,13 @@ impl<'a> PyLexer<'a> {
                     if self.reader.current_char() == quote {
                         self.reader.bump(); // consume third quote
                         self.state = LexerState::Normal;
-                        return PyTokenKind::TkString;
+                        return string_type;
                     }
                 }
                 // If we don't find three quotes, continue
                 continue;
             }
-            
+
             if self.reader.current_char() == '\\' {
                 self.reader.bump(); // skip escape character
                 if !self.reader.is_eof() {
@@ -508,21 +534,21 @@ impl<'a> PyLexer<'a> {
 
         self.error(|| t!("Unterminated triple-quoted string"));
         self.state = LexerState::Normal;
-        PyTokenKind::TkString
+        string_type
     }
 
-    fn lex_string(&mut self, quote: char) -> PyTokenKind {
+    fn lex_string(&mut self, quote: char, string_type: PyTokenKind) -> PyTokenKind {
         while !self.reader.is_eof() {
             let ch = self.reader.current_char();
             if ch == quote {
                 break;
             }
-            
+
             // Python strings cannot span multiple lines unless they're triple-quoted
             if ch == '\n' || ch == '\r' {
                 self.error(|| "Unterminated string literal");
                 self.state = LexerState::Normal;
-                return PyTokenKind::TkString;
+                return string_type;
             }
 
             if ch == '\\' {
@@ -547,15 +573,50 @@ impl<'a> PyLexer<'a> {
         if self.reader.current_char() == quote {
             self.reader.bump(); // consume closing quote
             self.state = LexerState::Normal;
-            PyTokenKind::TkString
+            string_type
         } else {
             self.error(|| "Unterminated string literal");
             self.state = LexerState::Normal;
-            PyTokenKind::TkString
+            string_type
         }
     }
 
+    /// Check if a name is a string prefix (r, u, b, f) and return the corresponding token type
+    fn get_string_type_from_prefix(name: &str) -> Option<PyTokenKind> {
+        match name.to_lowercase().as_str() {
+            "r" => Some(PyTokenKind::TkRawString),
+            "b" => Some(PyTokenKind::TkBytesString),
+            "f" => Some(PyTokenKind::TkFString),
+            "u" => Some(PyTokenKind::TkString), // Unicode strings are regular strings in Python 3
+            "rb" | "br" => Some(PyTokenKind::TkRawBytesString), // Raw bytes
+            "rf" | "fr" => Some(PyTokenKind::TkFString), // Raw f-string (if supported)
+            "ur" | "ru" => Some(PyTokenKind::TkString), // Raw unicode (same as regular string)
+            _ => None,
+        }
+    }
 
+    /// Try to parse a string literal with possible prefix
+    fn try_parse_prefixed_string(&mut self, name: &str) -> Option<PyTokenKind> {
+        if let Some(string_type) = Self::get_string_type_from_prefix(name) {
+            // Check if next character is a quote
+            if matches!(self.reader.current_char(), '"' | '\'') {
+                let quote = self.reader.current_char();
+                self.reader.bump();
+
+                // Check for triple-quoted strings
+                if self.reader.current_char() == quote && self.reader.next_char() == quote {
+                    self.reader.bump(); // second quote
+                    self.reader.bump(); // third quote
+                    self.state = LexerState::TripleString(quote, string_type);
+                    return Some(self.lex_triple_string(quote, string_type));
+                } else {
+                    self.state = LexerState::String(quote, string_type);
+                    return Some(self.lex_string(quote, string_type));
+                }
+            }
+        }
+        None
+    }
 
     fn lex_number(&mut self) -> PyTokenKind {
         enum NumberState {
@@ -569,14 +630,14 @@ impl<'a> PyLexer<'a> {
 
         let mut state = NumberState::Int;
         let first = self.reader.current_char();
-        
+
         if first == '.' {
             // Starting with dot means it's a float
             self.reader.bump();
             state = NumberState::Float;
         } else {
             self.reader.bump();
-            
+
             if first == '0' {
                 match self.reader.current_char() {
                     'x' | 'X' => {
@@ -658,7 +719,9 @@ impl<'a> PyLexer<'a> {
         }
 
         match state {
-            NumberState::Int | NumberState::Hex | NumberState::Binary | NumberState::Octal => PyTokenKind::TkInt,
+            NumberState::Int | NumberState::Hex | NumberState::Binary | NumberState::Octal => {
+                PyTokenKind::TkInt
+            }
             _ => PyTokenKind::TkFloat,
         }
     }

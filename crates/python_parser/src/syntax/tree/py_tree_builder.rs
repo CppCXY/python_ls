@@ -36,7 +36,7 @@ impl<'a> PyTreeBuilder<'a> {
     }
 
     pub fn build(&mut self) {
-        self.start_node(PySyntaxKind::Chunk);
+        self.start_node(PySyntaxKind::Module);
         let mut parents: Vec<PySyntaxKind> = Vec::new();
         for i in 0..self.events.len() {
             match std::mem::replace(&mut self.events[i], MarkEvent::none()) {

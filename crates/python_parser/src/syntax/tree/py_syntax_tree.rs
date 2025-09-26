@@ -1,9 +1,8 @@
 use rowan::GreenNode;
 
 use crate::{
-    PySyntaxNode,
     parser_error::{PyParseError, PyParseErrorKind},
-    syntax::{node::PyChunk, traits::PyAstNode},
+    syntax::{PySyntaxNode, node::PyModule, traits::PyAstNode},
 };
 
 #[derive(Debug, Clone)]
@@ -23,9 +22,9 @@ impl PySyntaxTree {
         PySyntaxNode::new_root(self.root.clone())
     }
 
-    // get chunk node, only can cast to LuaChunk
-    pub fn get_chunk_node(&self) -> PyChunk {
-        PyChunk::cast(self.get_red_root()).unwrap()
+    // get chunk node, only can cast to PyModule
+    pub fn get_module_node(&self) -> PyModule {
+        PyModule::cast(self.get_red_root()).unwrap()
     }
 
     pub fn get_errors(&self) -> &[PyParseError] {

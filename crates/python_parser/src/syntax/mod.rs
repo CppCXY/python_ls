@@ -239,7 +239,7 @@ impl<T: PyAstNode> PyAstPtr<T> {
         self.syntax_id
     }
 
-    pub fn to_node(&self, root: &LuaChunk) -> Option<T> {
+    pub fn to_node(&self, root: &PyModule) -> Option<T> {
         let syntax_node = self.syntax_id.to_node_from_root(root.syntax());
         if let Some(node) = syntax_node {
             T::cast(node)

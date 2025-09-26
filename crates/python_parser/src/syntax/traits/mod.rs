@@ -6,8 +6,8 @@ use std::marker::PhantomData;
 use rowan::{TextRange, TextSize, WalkEvent};
 
 use crate::{
-    PyAstPtr,
     kind::{PySyntaxKind, PyTokenKind},
+    syntax::PyAstPtr,
 };
 
 use super::PySyntaxId;
@@ -38,14 +38,14 @@ pub trait PyAstNode {
             .find_map(|it| it.into_token().and_then(N::cast))
     }
 
-    fn token_by_kind(&self, kind: PyTokenKind) -> Option<LuaGeneralToken> {
+    fn token_by_kind(&self, kind: PyTokenKind) -> Option<PyGeneralToken> {
         let token = self
             .syntax()
             .children_with_tokens()
             .filter_map(|it| it.into_token())
             .find(|it| it.kind() == kind.into())?;
 
-        LuaGeneralToken::cast(token)
+        PyGeneralToken::cast(token)
     }
 
     fn tokens<N: PyAstToken>(&self) -> LuaAstTokenChildren<N> {
@@ -73,7 +73,7 @@ pub trait PyAstNode {
 
     fn get_root(&self) -> PySyntaxNode {
         let syntax = self.syntax();
-        if syntax.kind() == PySyntaxKind::Chunk.into() {
+        if syntax.kind() == PySyntaxKind::Module.into() {
             syntax.clone()
         } else {
             syntax.ancestors().last().unwrap()

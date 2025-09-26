@@ -1,9 +1,11 @@
-mod number_analyzer;
-mod string_analyzer;
-mod test;
-mod tokens;
+// Python-specific token modules
+mod py_number_analyzer;
+mod py_string_analyzer;
+mod py_test;
+mod py_tokens;
 
-pub use number_analyzer::{float_token_value, int_token_value};
-pub use string_analyzer::string_token_value;
+// Python exports (new primary interface)
 #[allow(unused)]
-pub use tokens::*;
+pub use py_number_analyzer::{IntegerOrUnsigned, float_token_value, int_token_value};
+pub use py_string_analyzer::string_token_value;
+pub use py_tokens::*;

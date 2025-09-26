@@ -3,15 +3,16 @@ use super::{
     marker::{MarkEvent, MarkerEventContainer},
     parser_config::ParserConfig,
 };
-use crate::text::Reader;
 use crate::{
     // LuaSyntaxTree, LuaTreeBuilder,
     grammar::parse_module,
     kind::PyTokenKind,
     lexer::{PyLexer, PyTokenData},
     parser_error::PyParseError,
+    syntax::PySyntaxTree,
     text::SourceRange,
 };
+use crate::{syntax::PyTreeBuilder, text::Reader};
 
 #[allow(unused)]
 pub struct PyParser<'a> {
@@ -24,9 +25,9 @@ pub struct PyParser<'a> {
     pub parse_config: ParserConfig<'a>,
     pub(crate) errors: &'a mut Vec<PyParseError>,
     // 括号嵌套级别跟踪
-    paren_level: usize,    // ()
-    bracket_level: usize,  // []
-    brace_level: usize,    // {}
+    paren_level: usize,   // ()
+    bracket_level: usize, // []
+    brace_level: usize,   // {}
 }
 
 impl MarkerEventContainer for PyParser<'_> {
@@ -49,7 +50,7 @@ impl MarkerEventContainer for PyParser<'_> {
 
 impl<'a> PyParser<'a> {
     #[allow(unused)]
-    pub fn parse(text: &'a str, config: ParserConfig) -> Option<()> {
+    pub fn parse(text: &'a str, config: ParserConfig) -> PySyntaxTree {
         let mut errors: Vec<PyParseError> = Vec::new();
         let tokens = {
             let mut lexer =
@@ -73,17 +74,16 @@ impl<'a> PyParser<'a> {
 
         parse_module(&mut parser);
         let errors = parser.get_errors();
-        // let root = {
-        //     let mut builder = LuaTreeBuilder::new(
-        //         parser.origin_text(),
-        //         parser.events,
-        //         parser.parse_config.node_cache(),
-        //     );
-        //     builder.build();
-        //     builder.finish()
-        // };
-        // LuaSyntaxTree::new(root, errors)
-        todo!()
+        let root = {
+            let mut builder = PyTreeBuilder::new(
+                parser.origin_text(),
+                parser.events,
+                parser.parse_config.node_cache(),
+            );
+            builder.build();
+            builder.finish()
+        };
+        PySyntaxTree::new(root, errors)
     }
 
     pub fn init(&mut self) {
@@ -205,7 +205,7 @@ impl<'a> PyParser<'a> {
         }
     }
 
-    // Parse trivia tokens (comments, whitespace, shebang) 
+    // Parse trivia tokens (comments, whitespace, shebang)
     // Note: TkNewline is no longer trivia in Python - it has syntactic meaning
     fn parse_trivia_tokens(&mut self, start: usize, end: usize) {
         // Simply consume trivia tokens and add them to events
@@ -254,8 +254,9 @@ impl<'a> PyParser<'a> {
 
     /// Skip whitespace and optionally newlines (when inside parentheses)
     pub fn skip_whitespace_and_optional_newlines(&mut self) {
-        while matches!(self.current_token(), PyTokenKind::TkWhitespace) 
-            || (self.in_parentheses_context() && matches!(self.current_token(), PyTokenKind::TkNewline)) 
+        while matches!(self.current_token(), PyTokenKind::TkWhitespace)
+            || (self.in_parentheses_context()
+                && matches!(self.current_token(), PyTokenKind::TkNewline))
         {
             self.bump();
         }
@@ -265,8 +266,12 @@ impl<'a> PyParser<'a> {
     pub fn expect_token(&mut self, expected: PyTokenKind) -> bool {
         if self.current_token() == expected {
             match expected {
-                PyTokenKind::TkLeftParen | PyTokenKind::TkLeftBracket | PyTokenKind::TkLeftBrace |
-                PyTokenKind::TkRightParen | PyTokenKind::TkRightBracket | PyTokenKind::TkRightBrace => {
+                PyTokenKind::TkLeftParen
+                | PyTokenKind::TkLeftBracket
+                | PyTokenKind::TkLeftBrace
+                | PyTokenKind::TkRightParen
+                | PyTokenKind::TkRightBracket
+                | PyTokenKind::TkRightBrace => {
                     self.smart_bump();
                 }
                 _ => {
@@ -310,7 +315,7 @@ impl<'a> PyParser<'a> {
     /// 智能bump：自动处理括号跟踪和上下文相关的换行符跳过
     pub fn smart_bump(&mut self) {
         let current = self.current_token();
-        
+
         // 跟踪括号嵌套
         match current {
             PyTokenKind::TkLeftParen | PyTokenKind::TkLeftBracket | PyTokenKind::TkLeftBrace => {
@@ -321,9 +326,9 @@ impl<'a> PyParser<'a> {
             }
             _ => {}
         }
-        
+
         self.bump();
-        
+
         // 在括号内自动跳过换行符
         if self.in_parentheses_context() && self.current_token() == PyTokenKind::TkNewline {
             self.bump();
@@ -334,9 +339,7 @@ impl<'a> PyParser<'a> {
 fn is_trivia_kind(kind: PyTokenKind) -> bool {
     matches!(
         kind,
-        PyTokenKind::TkComment
-            | PyTokenKind::TkWhitespace
-            | PyTokenKind::TkShebang
+        PyTokenKind::TkComment | PyTokenKind::TkWhitespace | PyTokenKind::TkShebang
     )
 }
 

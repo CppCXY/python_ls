@@ -1,17 +1,16 @@
 use crate::{
-    LuaSyntaxToken,
-    parser_error::{PyParseError, LuaParseErrorKind},
+    parser_error::{PyParseError, PyParseErrorKind},
+    syntax::PySyntaxToken,
 };
 
-pub fn float_token_value(token: &LuaSyntaxToken) -> Result<f64, PyParseError> {
+pub fn float_token_value(token: &PySyntaxToken) -> Result<f64, PyParseError> {
     let text = token.text();
+
+    // Python float formats: 3.14, .5, 5., 1e10, 2.5e-3, 0x1.Ap3 (hex float)
     let hex = text.starts_with("0x") || text.starts_with("0X");
 
-    // This section handles the parsing of hexadecimal floating-point numbers.
-    // Hexadecimal floating-point literals are of the form 0x1.8p3, where:
-    // - "0x1.8" is the significand (integer and fractional parts in hexadecimal)
-    // - "p3" is the exponent (in decimal, base 2 exponent)
     let value = if hex {
+        // Hexadecimal floating-point numbers (Python 3.0+)
         let hex_float_text = &text[2..];
         let exponent_position = hex_float_text
             .find('p')
@@ -49,6 +48,7 @@ pub fn float_token_value(token: &LuaSyntaxToken) -> Result<f64, PyParseError> {
         }
         value
     } else {
+        // Standard decimal floating-point
         let (float_part, exponent_part) =
             if let Some(pos) = text.find('e').or_else(|| text.find('E')) {
                 (&text[..pos], &text[(pos + 1)..])
@@ -58,12 +58,8 @@ pub fn float_token_value(token: &LuaSyntaxToken) -> Result<f64, PyParseError> {
 
         let mut value = float_part.parse::<f64>().map_err(|e| {
             PyParseError::new(
-                LuaParseErrorKind::SyntaxError,
-                &t!(
-                    "The float literal '%{text}' is invalid, %{err}",
-                    text = text,
-                    err = e
-                ),
+                PyParseErrorKind::SyntaxError,
+                &format!("The float literal '{}' is invalid: {}", text, e),
                 token.text_range(),
             )
         })?;
@@ -84,6 +80,7 @@ enum IntegerRepr {
     Normal,
     Hex,
     Bin,
+    Oct,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,33 +106,30 @@ impl IntegerOrUnsigned {
     }
 }
 
-pub fn int_token_value(token: &LuaSyntaxToken) -> Result<IntegerOrUnsigned, PyParseError> {
+pub fn int_token_value(token: &PySyntaxToken) -> Result<IntegerOrUnsigned, PyParseError> {
     let text = token.text();
+
+    // Determine the representation
     let repr = if text.starts_with("0x") || text.starts_with("0X") {
         IntegerRepr::Hex
     } else if text.starts_with("0b") || text.starts_with("0B") {
         IntegerRepr::Bin
+    } else if text.starts_with("0o") || text.starts_with("0O") {
+        IntegerRepr::Oct
+    } else if text.len() > 1
+        && text.starts_with('0')
+        && text.chars().nth(1).unwrap().is_ascii_digit()
+    {
+        // Legacy octal (Python 2 style: 0123)
+        IntegerRepr::Oct
     } else {
         IntegerRepr::Normal
     };
 
-    // 检查是否有无符号后缀并去除后缀
-    let mut is_unsigned = false;
-    let mut suffix_count = 0;
-    for c in text.chars().rev() {
-        if c == 'u' || c == 'U' {
-            is_unsigned = true;
-            suffix_count += 1;
-        } else if c == 'l' || c == 'L' {
-            suffix_count += 1;
-        } else {
-            break;
-        }
-    }
+    // Python integers don't have unsigned suffixes like C/C++
+    let text = text;
 
-    let text = &text[..text.len() - suffix_count];
-
-    // 首先尝试解析为有符号整数
+    // Try to parse as signed integer first
     let signed_value = match repr {
         IntegerRepr::Hex => {
             let text = &text[2..];
@@ -145,6 +139,14 @@ pub fn int_token_value(token: &LuaSyntaxToken) -> Result<IntegerOrUnsigned, PyPa
             let text = &text[2..];
             i64::from_str_radix(text, 2)
         }
+        IntegerRepr::Oct => {
+            let text = if text.starts_with("0o") || text.starts_with("0O") {
+                &text[2..]
+            } else {
+                &text[1..] // Skip the leading '0' for legacy octal
+            };
+            i64::from_str_radix(text, 8)
+        }
         IntegerRepr::Normal => text.parse::<i64>(),
     };
 
@@ -153,8 +155,9 @@ pub fn int_token_value(token: &LuaSyntaxToken) -> Result<IntegerOrUnsigned, PyPa
         Err(e) => {
             let range = token.text_range();
 
-            // 如果是溢出错误，尝试解析为无符号整数
-            if *e.kind() == std::num::IntErrorKind::PosOverflow && is_unsigned {
+            // For Python, integers have arbitrary precision in Python 3
+            // But for our parser, we'll handle overflow by trying u64
+            if *e.kind() == std::num::IntErrorKind::PosOverflow {
                 let unsigned_value = match repr {
                     IntegerRepr::Hex => {
                         let text = &text[2..];
@@ -164,16 +167,24 @@ pub fn int_token_value(token: &LuaSyntaxToken) -> Result<IntegerOrUnsigned, PyPa
                         let text = &text[2..];
                         u64::from_str_radix(text, 2)
                     }
+                    IntegerRepr::Oct => {
+                        let text = if text.starts_with("0o") || text.starts_with("0O") {
+                            &text[2..]
+                        } else {
+                            &text[1..]
+                        };
+                        u64::from_str_radix(text, 8)
+                    }
                     IntegerRepr::Normal => text.parse::<u64>(),
                 };
 
                 match unsigned_value {
                     Ok(value) => Ok(IntegerOrUnsigned::Uint(value)),
                     Err(_) => Err(PyParseError::new(
-                        LuaParseErrorKind::SyntaxError,
-                        &t!(
-                            "The integer literal '%{text}' is too large to be represented",
-                            text = token.text()
+                        PyParseErrorKind::SyntaxError,
+                        &format!(
+                            "The integer literal '{}' is too large to be represented",
+                            token.text()
                         ),
                         range,
                     )),
@@ -183,21 +194,17 @@ pub fn int_token_value(token: &LuaSyntaxToken) -> Result<IntegerOrUnsigned, PyPa
                 std::num::IntErrorKind::NegOverflow | std::num::IntErrorKind::PosOverflow
             ) {
                 Err(PyParseError::new(
-                    LuaParseErrorKind::SyntaxError,
-                    &t!(
-                        "The integer literal '%{text}' is too large to be represented in type 'long'",
-                        text = token.text()
+                    PyParseErrorKind::SyntaxError,
+                    &format!(
+                        "The integer literal '{}' is too large to be represented",
+                        token.text()
                     ),
                     range,
                 ))
             } else {
                 Err(PyParseError::new(
-                    LuaParseErrorKind::SyntaxError,
-                    &t!(
-                        "The integer literal '%{text}' is invalid, %{err}",
-                        text = token.text(),
-                        err = e
-                    ),
+                    PyParseErrorKind::SyntaxError,
+                    &format!("The integer literal '{}' is invalid: {}", token.text(), e),
                     range,
                 ))
             }
