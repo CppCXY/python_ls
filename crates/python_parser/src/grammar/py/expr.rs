@@ -11,6 +11,11 @@ pub fn parse_expr(p: &mut PyParser) -> ParseResult {
     parse_tuple_or_expr(p)
 }
 
+// Parse single expression without tuple handling (for contexts like dict values, function args)
+pub fn parse_single_expr(p: &mut PyParser) -> ParseResult {
+    parse_sub_expr(p, 0)
+}
+
 // Parse tuple or single expression (handles comma-separated expressions)
 fn parse_tuple_or_expr(p: &mut PyParser) -> ParseResult {
     let mut m = p.mark(PySyntaxKind::TupleExpr);
@@ -342,7 +347,7 @@ fn parse_dict_expr(p: &mut PyParser) -> ParseResult {
     if p.current_token() != PyTokenKind::TkRightBrace {
         loop {
             // Parse key
-            if parse_expr(p).is_err() {
+            if parse_single_expr(p).is_err() {
                 p.push_error(PyParseError::syntax_error_from(
                     &t!("expected key expression in dictionary"),
                     p.current_token_range(),
@@ -361,7 +366,7 @@ fn parse_dict_expr(p: &mut PyParser) -> ParseResult {
             }
 
             // Parse value
-            if parse_expr(p).is_err() {
+            if parse_single_expr(p).is_err() {
                 p.push_error(PyParseError::syntax_error_from(
                     &t!("expected value expression in dictionary"),
                     p.current_token_range(),
@@ -599,7 +604,7 @@ fn parse_argument(p: &mut PyParser) {
         let marker = p.mark(PySyntaxKind::StarredExpr);
         p.bump(); // consume '**'
         
-        if parse_expr(p).is_err() {
+        if parse_single_expr(p).is_err() {
             p.push_error(PyParseError::syntax_error_from(
                 &t!("expected expression after '**'"),
                 p.current_token_range(),
@@ -615,7 +620,7 @@ fn parse_argument(p: &mut PyParser) {
         let marker = p.mark(PySyntaxKind::StarredExpr);
         p.bump(); // consume '*'
         
-        if parse_expr(p).is_err() {
+        if parse_single_expr(p).is_err() {
             p.push_error(PyParseError::syntax_error_from(
                 &t!("expected expression after '*'"),
                 p.current_token_range(),
@@ -636,15 +641,13 @@ fn parse_argument(p: &mut PyParser) {
             // This is indeed a keyword argument
             p.bump(); // consume '='
             
-            // Parse value expression
-            if parse_expr(p).is_err() {
-                p.push_error(PyParseError::syntax_error_from(
-                    &t!("expected value expression after '='"),
-                    p.current_token_range(),
-                ));
-            }
-            
-            marker.complete(p);
+        // Parse value expression
+        if parse_single_expr(p).is_err() {
+            p.push_error(PyParseError::syntax_error_from(
+                &t!("expected value expression after '='"),
+                p.current_token_range(),
+            ));
+        }            marker.complete(p);
             return;
         } else {
             // Not a keyword argument, rollback and parse as expression
@@ -659,7 +662,7 @@ fn parse_argument(p: &mut PyParser) {
     }
     
     // Parse regular argument expression
-    if parse_expr(p).is_err() {
+    if parse_single_expr(p).is_err() {
         p.push_error(PyParseError::syntax_error_from(
             &t!("expected argument expression"),
             p.current_token_range(),

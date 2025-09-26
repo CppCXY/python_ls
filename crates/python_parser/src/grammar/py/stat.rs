@@ -428,7 +428,40 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
         // Parse parameters if any
         if p.current_token() != PyTokenKind::TkRightParen {
             loop {
-                if p.current_token() == PyTokenKind::TkName {
+                // Check for **kwargs
+                if p.current_token() == PyTokenKind::TkPow {
+                    let single_param_m = p.mark(PySyntaxKind::Parameter);
+                    p.bump(); // consume '**'
+                    
+                    if p.current_token() == PyTokenKind::TkName {
+                        p.bump(); // consume parameter name
+                    } else {
+                        p.push_error(PyParseError::syntax_error_from(
+                            &t!("expected parameter name after '**'"),
+                            p.current_token_range(),
+                        ));
+                    }
+                    
+                    single_param_m.complete(p);
+                }
+                // Check for *args
+                else if p.current_token() == PyTokenKind::TkMul {
+                    let single_param_m = p.mark(PySyntaxKind::Parameter);
+                    p.bump(); // consume '*'
+                    
+                    if p.current_token() == PyTokenKind::TkName {
+                        p.bump(); // consume parameter name
+                    } else {
+                        p.push_error(PyParseError::syntax_error_from(
+                            &t!("expected parameter name after '*'"),
+                            p.current_token_range(),
+                        ));
+                    }
+                    
+                    single_param_m.complete(p);
+                }
+                // Regular parameter
+                else if p.current_token() == PyTokenKind::TkName {
                     let single_param_m = p.mark(PySyntaxKind::Parameter);
                     p.bump();
 
@@ -436,7 +469,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
                     if p.current_token() == PyTokenKind::TkColon {
                         p.bump(); // consume ':'
                         let _annotation_m = p.mark(PySyntaxKind::TypeAnnotation);
-                        if parse_expr(p).is_err() {
+                        if super::expr::parse_single_expr(p).is_err() {
                             p.push_error(PyParseError::syntax_error_from(
                                 &t!("expected type annotation after ':'"),
                                 p.current_token_range(),
@@ -448,7 +481,7 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
                     // Optional default value
                     if p.current_token() == PyTokenKind::TkAssign {
                         p.bump(); // consume '='
-                        if parse_expr(p).is_err() {
+                        if super::expr::parse_single_expr(p).is_err() {
                             p.push_error(PyParseError::syntax_error_from(
                                 &t!("expected default value after '='"),
                                 p.current_token_range(),
@@ -667,7 +700,12 @@ fn parse_from_import(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::ImportFromStmt);
     p.bump(); // consume 'from'
 
-    // Module name
+    // Handle relative imports (starting with dots)
+    while p.current_token() == PyTokenKind::TkDot {
+        p.bump(); // consume '.'
+    }
+
+    // Module name (optional for relative imports)
     if p.current_token() == PyTokenKind::TkName {
         p.bump();
 
@@ -688,30 +726,39 @@ fn parse_from_import(p: &mut PyParser) -> ParseResult {
     }
 
     // Import list
-    if p.current_token() == PyTokenKind::TkName || p.current_token() == PyTokenKind::TkLeftParen {
+    if p.current_token() == PyTokenKind::TkName 
+        || p.current_token() == PyTokenKind::TkLeftParen 
+        || p.current_token() == PyTokenKind::TkMul {
+        
         if p.current_token() == PyTokenKind::TkLeftParen {
             p.bump();
         }
 
-        loop {
-            if p.current_token() == PyTokenKind::TkName {
-                p.bump();
-
-                // Handle 'as' alias
-                if p.current_token() == PyTokenKind::TkAs {
+        // Handle wildcard import
+        if p.current_token() == PyTokenKind::TkMul {
+            p.bump(); // consume '*'
+        } else {
+            // Handle regular import list
+            loop {
+                if p.current_token() == PyTokenKind::TkName {
                     p.bump();
-                    if p.current_token() == PyTokenKind::TkName {
-                        p.bump();
-                    }
-                }
-            } else {
-                break;
-            }
 
-            if p.current_token() == PyTokenKind::TkComma {
-                p.bump();
-            } else {
-                break;
+                    // Handle 'as' alias
+                    if p.current_token() == PyTokenKind::TkAs {
+                        p.bump();
+                        if p.current_token() == PyTokenKind::TkName {
+                            p.bump();
+                        }
+                    }
+                } else {
+                    break;
+                }
+
+                if p.current_token() == PyTokenKind::TkComma {
+                    p.bump();
+                } else {
+                    break;
+                }
             }
         }
 
