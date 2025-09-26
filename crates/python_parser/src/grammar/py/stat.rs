@@ -205,12 +205,17 @@ fn parse_if(p: &mut PyParser) -> ParseResult {
         );
     }
 
+    // Consume optional newline before indented block
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump();
+    }
+
     // Parse suite (indented block)
     if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
     } else {
         p.push_error(PyParseError::syntax_error_from(
-            "expected indented block after ':'",
+            &t!("expected indented block after ':'"),
             p.current_token_range(),
         ));
     }
@@ -240,6 +245,11 @@ fn parse_elif_clause(p: &mut PyParser) -> ParseResult {
         t!("expected ':' after 'elif' condition")
     });
 
+    // Consume optional newline before indented block
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump();
+    }
+
     if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
     }
@@ -252,6 +262,11 @@ fn parse_else_clause(p: &mut PyParser) -> ParseResult {
     p.bump(); // consume 'else'
 
     expect_keyword_with_recovery(p, PyTokenKind::TkColon, || t!("expected ':' after 'else'"));
+
+    // Consume optional newline before indented block
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump();
+    }
 
     if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
@@ -389,9 +404,10 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
         p.bump();
     } else {
         p.push_error(PyParseError::syntax_error_from(
-            "expected function name after 'def'",
+            &t!("expected function name after 'def'"),
             p.current_token_range(),
         ));
+        return Err(ParseFailReason::UnexpectedToken);
     }
 
     // Parameters
@@ -405,6 +421,31 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
                 if p.current_token() == PyTokenKind::TkName {
                     let single_param_m = p.mark(PySyntaxKind::Parameter);
                     p.bump();
+                    
+                    // Optional type annotation
+                    if p.current_token() == PyTokenKind::TkColon {
+                        p.bump(); // consume ':'
+                        let _annotation_m = p.mark(PySyntaxKind::TypeAnnotation);
+                        if parse_expr(p).is_err() {
+                            p.push_error(PyParseError::syntax_error_from(
+                                &t!("expected type annotation after ':'"),
+                                p.current_token_range(),
+                            ));
+                        }
+                        _annotation_m.complete(p);
+                    }
+                    
+                    // Optional default value
+                    if p.current_token() == PyTokenKind::TkAssign {
+                        p.bump(); // consume '='
+                        if parse_expr(p).is_err() {
+                            p.push_error(PyParseError::syntax_error_from(
+                                &t!("expected default value after '='"),
+                                p.current_token_range(),
+                            ));
+                        }
+                    }
+                    
                     single_param_m.complete(p);
                 } else {
                     break;
@@ -412,6 +453,10 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
 
                 if p.current_token() == PyTokenKind::TkComma {
                     p.bump();
+                    // Allow trailing comma
+                    if p.current_token() == PyTokenKind::TkRightParen {
+                        break;
+                    }
                 } else {
                     break;
                 }
@@ -420,18 +465,63 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
 
         if p.current_token() == PyTokenKind::TkRightParen {
             p.smart_bump(); // consume ')' and update paren context
+        } else {
+            p.push_error(PyParseError::syntax_error_from(
+                &t!("expected ')' to close parameter list"),
+                p.current_token_range(),
+            ));
         }
         param_m.complete(p);
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            &t!("expected '(' after function name"),
+            p.current_token_range(),
+        ));
     }
 
-    // Colon
+    // Optional return type annotation
+    if p.current_token() == PyTokenKind::TkArrow {
+        p.bump(); // consume '->'
+        let _return_annotation_m = p.mark(PySyntaxKind::TypeAnnotation);
+        if parse_expr(p).is_err() {
+            p.push_error(PyParseError::syntax_error_from(
+                &t!("expected return type annotation after '->'"),
+                p.current_token_range(),
+            ));
+        }
+        _return_annotation_m.complete(p);
+    }
+
+    // Colon  
     if p.current_token() == PyTokenKind::TkColon {
         p.bump();
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            &t!("expected ':' after function signature"),
+            p.current_token_range(),
+        ));
+        return Err(ParseFailReason::UnexpectedToken);
     }
 
     // Body
-    if p.current_token() == PyTokenKind::TkIndent {
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump(); // consume newline
+        if p.current_token() == PyTokenKind::TkIndent {
+            parse_suite_with_docstring(p, true)?;
+        } else {
+            p.push_error(PyParseError::syntax_error_from(
+                &t!("expected indented block after ':'"),
+                p.current_token_range(),
+            ));
+        }
+    } else if p.current_token() == PyTokenKind::TkIndent {
+        // Direct indentation without newline (shouldn't happen normally)
         parse_suite_with_docstring(p, true)?;
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            &t!("expected indented block after ':'"),
+            p.current_token_range(),
+        ));
     }
 
     Ok(m.complete(p))
@@ -446,40 +536,78 @@ fn parse_class(p: &mut PyParser) -> ParseResult {
         p.bump();
     } else {
         p.push_error(PyParseError::syntax_error_from(
-            "expected class name after 'class'",
+            &t!("expected class name after 'class'"),
             p.current_token_range(),
         ));
+        return Err(ParseFailReason::UnexpectedToken);
     }
 
     // Optional inheritance
     if p.current_token() == PyTokenKind::TkLeftParen {
-        p.bump();
+        p.smart_bump(); // consume '('
+        
         // Parse base classes
         if p.current_token() != PyTokenKind::TkRightParen {
             loop {
                 if parse_expr(p).is_err() {
+                    p.push_error(PyParseError::syntax_error_from(
+                        &t!("expected base class expression"),
+                        p.current_token_range(),
+                    ));
                     break;
                 }
+                
                 if p.current_token() == PyTokenKind::TkComma {
                     p.bump();
+                    // Allow trailing comma
+                    if p.current_token() == PyTokenKind::TkRightParen {
+                        break;
+                    }
                 } else {
                     break;
                 }
             }
         }
+        
         if p.current_token() == PyTokenKind::TkRightParen {
-            p.bump();
+            p.smart_bump(); // consume ')'
+        } else {
+            p.push_error(PyParseError::syntax_error_from(
+                &t!("expected ')' to close base class list"),
+                p.current_token_range(),
+            ));
         }
     }
 
     // Colon
     if p.current_token() == PyTokenKind::TkColon {
         p.bump();
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            &t!("expected ':' after class header"),
+            p.current_token_range(),
+        ));
+        return Err(ParseFailReason::UnexpectedToken);
     }
 
     // Body
-    if p.current_token() == PyTokenKind::TkIndent {
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump(); // consume newline
+        if p.current_token() == PyTokenKind::TkIndent {
+            parse_suite_with_docstring(p, true)?;
+        } else {
+            p.push_error(PyParseError::syntax_error_from(
+                &t!("expected indented block after ':'"),
+                p.current_token_range(),
+            ));
+        }
+    } else if p.current_token() == PyTokenKind::TkIndent {
         parse_suite_with_docstring(p, true)?;
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            &t!("expected indented block after ':'"),
+            p.current_token_range(),
+        ));
     }
 
     Ok(m.complete(p))
@@ -877,9 +1005,9 @@ fn consume_statement_terminator(p: &mut PyParser) {
 }
 
 fn parse_assign_or_expr_stat(p: &mut PyParser) -> ParseResult {
-    let mut m = p.mark(PySyntaxKind::AssignStmt);
+    let mut m = p.mark(PySyntaxKind::ExprStmt);
 
-    // Parse expression
+    // Parse left side expression  
     if parse_expr(p).is_err() {
         p.push_error(PyParseError::syntax_error_from(
             "expected expression",
@@ -888,25 +1016,45 @@ fn parse_assign_or_expr_stat(p: &mut PyParser) -> ParseResult {
         return Err(ParseFailReason::UnexpectedToken);
     }
 
-    // Check for assignment
-    if matches!(p.current_token(), PyTokenKind::TkAssign) {
-        p.bump(); // consume assignment operator
+    // Check for assignment operators
+    match p.current_token() {
+        // Simple assignment
+        PyTokenKind::TkAssign => {
+            m.set_kind(p, PySyntaxKind::AssignStmt);
+            p.bump(); // consume '='
 
-        if parse_expr(p).is_err() {
-            p.push_error(PyParseError::syntax_error_from(
-                "expected expression after assignment",
-                p.current_token_range(),
-            ));
+            if parse_expr(p).is_err() {
+                p.push_error(PyParseError::syntax_error_from(
+                    "expected expression after '='",
+                    p.current_token_range(),
+                ));
+            }
+        },
+        // Augmented assignments
+        PyTokenKind::TkPlusAssign | PyTokenKind::TkMinusAssign | PyTokenKind::TkMulAssign |
+        PyTokenKind::TkDivAssign | PyTokenKind::TkFloorDivAssign | PyTokenKind::TkModAssign |
+        PyTokenKind::TkPowAssign | PyTokenKind::TkMatMulAssign | PyTokenKind::TkBitAndAssign |
+        PyTokenKind::TkBitOrAssign | PyTokenKind::TkBitXorAssign | PyTokenKind::TkShlAssign |
+        PyTokenKind::TkShrAssign => {
+            m.set_kind(p, PySyntaxKind::AugAssignStmt);
+            let op_token = p.current_token();
+            p.bump(); // consume augmented assignment operator
+
+            if parse_expr(p).is_err() {
+                let op_str = format!("{:?}", op_token).replace("Tk", "").replace("Assign", "=");
+                p.push_error(PyParseError::syntax_error_from(
+                    &t!("expected expression after '{op}'", op = op_str),
+                    p.current_token_range(),
+                ));
+            }
+        },
+        _ => {
+            // Just an expression statement, keep ExprStmt kind
         }
-
-        consume_statement_terminator(p);
-        Ok(m.complete(p))
-    } else {
-        // Just an expression statement
-        m.set_kind(p, PySyntaxKind::ExprStmt);
-        consume_statement_terminator(p);
-        Ok(m.complete(p))
     }
+
+    consume_statement_terminator(p);
+    Ok(m.complete(p))
 }
 
 // Parse decorators

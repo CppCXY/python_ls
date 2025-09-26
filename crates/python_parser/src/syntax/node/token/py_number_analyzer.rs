@@ -3,7 +3,7 @@ use crate::{
     syntax::PySyntaxToken,
 };
 
-pub fn float_token_value(token: &PySyntaxToken) -> Result<f64, PyParseError> {
+pub fn float_token_value(token: &PySyntaxToken) -> Result<FloatOrLarge, PyParseError> {
     let text = token.text();
 
     // Python float formats: 3.14, .5, 5., 1e10, 2.5e-3, 0x1.Ap3 (hex float)
@@ -78,7 +78,18 @@ pub fn float_token_value(token: &PySyntaxToken) -> Result<f64, PyParseError> {
         value
     };
 
-    Ok(value)
+    // Check for special float values
+    if value.is_infinite() {
+        if value.is_sign_positive() {
+            Ok(FloatOrLarge::Infinity)
+        } else {
+            Ok(FloatOrLarge::NegativeInfinity)
+        }
+    } else if value.is_nan() {
+        Ok(FloatOrLarge::NaN)
+    } else {
+        Ok(FloatOrLarge::Float(value))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,6 +106,14 @@ pub enum IntegerOrLarge {
     Large,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FloatOrLarge {
+    Float(f64),
+    Infinity,
+    NegativeInfinity,
+    NaN,
+}
+
 impl IntegerOrLarge {
     pub fn is_signed(&self) -> bool {
         matches!(self, IntegerOrLarge::Int(_))
@@ -102,6 +121,32 @@ impl IntegerOrLarge {
 
     pub fn is_large(&self) -> bool {
         matches!(self, IntegerOrLarge::Large)
+    }
+}
+
+impl FloatOrLarge {
+    pub fn is_finite(&self) -> bool {
+        matches!(self, FloatOrLarge::Float(_))
+    }
+
+    pub fn is_infinite(&self) -> bool {
+        matches!(
+            self,
+            FloatOrLarge::Infinity | FloatOrLarge::NegativeInfinity
+        )
+    }
+
+    pub fn is_nan(&self) -> bool {
+        matches!(self, FloatOrLarge::NaN)
+    }
+
+    pub fn as_f64(&self) -> Option<f64> {
+        match self {
+            FloatOrLarge::Float(val) => Some(*val),
+            FloatOrLarge::Infinity => Some(f64::INFINITY),
+            FloatOrLarge::NegativeInfinity => Some(f64::NEG_INFINITY),
+            FloatOrLarge::NaN => Some(f64::NAN),
+        }
     }
 }
 
@@ -152,29 +197,18 @@ pub fn int_token_value(token: &PySyntaxToken) -> Result<IntegerOrLarge, PyParseE
     match signed_value {
         Ok(value) => Ok(IntegerOrLarge::Int(value)),
         Err(e) => {
-            let range = token.text_range();
-
-            // For Python, integers have arbitrary precision in Python 3
-            // But for our parser, we'll handle overflow by trying u64
-            if *e.kind() == std::num::IntErrorKind::PosOverflow {
-                Ok(IntegerOrLarge::Large)
-            } else if matches!(
+            // For Python, integers have arbitrary precision
+            // When overflow occurs, we return Large to indicate a big integer
+            if matches!(
                 *e.kind(),
-                std::num::IntErrorKind::NegOverflow | std::num::IntErrorKind::PosOverflow
+                std::num::IntErrorKind::PosOverflow | std::num::IntErrorKind::NegOverflow
             ) {
-                Err(PyParseError::new(
-                    PyParseErrorKind::SyntaxError,
-                    &format!(
-                        "The integer literal '{}' is too large to be represented",
-                        token.text()
-                    ),
-                    range,
-                ))
+                Ok(IntegerOrLarge::Large)
             } else {
                 Err(PyParseError::new(
                     PyParseErrorKind::SyntaxError,
                     &format!("The integer literal '{}' is invalid: {}", token.text(), e),
-                    range,
+                    token.text_range(),
                 ))
             }
         }

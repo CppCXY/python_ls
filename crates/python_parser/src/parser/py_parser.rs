@@ -1,11 +1,9 @@
 use super::{
-    // py_doc_parser::LuaDocParser,
     marker::{MarkEvent, MarkerEventContainer},
     parser_config::ParserConfig,
 };
 use crate::{
-    // LuaSyntaxTree, LuaTreeBuilder,
-    grammar::parse_module,
+    grammar::parse_module_suite,
     kind::PyTokenKind,
     lexer::{PyLexer, PyTokenData},
     parser_error::PyParseError,
@@ -72,7 +70,7 @@ impl<'a> PyParser<'a> {
             brace_level: 0,
         };
 
-        parse_module(&mut parser);
+        parse_module_suite(&mut parser);
         let errors = parser.get_errors();
         let root = {
             let mut builder = PyTreeBuilder::new(

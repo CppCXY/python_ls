@@ -3,7 +3,9 @@ mod tests {
     use crate::{
         kind::{PySyntaxKind, PyTokenKind},
         syntax::node::token::{
-            IntegerOrLarge, float_token_value, int_token_value, string_token_value,
+            float_token_value, int_token_value,
+            py_number_analyzer::{FloatOrLarge, IntegerOrLarge},
+            string_token_value,
         },
         syntax::{PySyntaxNode, PySyntaxToken},
     };
@@ -125,7 +127,12 @@ mod tests {
             fn $name() {
                 let token = &get_token($code, PyTokenKind::TkFloat);
                 let result = float_token_value(token);
-                assert!((result.unwrap() - $expected).abs() < f64::EPSILON);
+                match result.unwrap() {
+                    FloatOrLarge::Float(val) => {
+                        assert!((val - $expected).abs() < f64::EPSILON);
+                    }
+                    _ => panic!("Expected finite float value"),
+                }
             }
         };
     }
@@ -239,6 +246,11 @@ mod tests {
         let result = float_token_value(token).unwrap();
 
         // Should be approximately pi
-        assert!((result - std::f64::consts::PI).abs() < 0.01);
+        match result {
+            FloatOrLarge::Float(val) => {
+                assert!((val - std::f64::consts::PI).abs() < 0.01);
+            }
+            _ => panic!("Expected finite float value"),
+        }
     }
 }

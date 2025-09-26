@@ -8,8 +8,8 @@ use crate::{
     parser_error::PyParseError,
 };
 
-pub fn parse_module(p: &mut PyParser) {
-    let m = p.mark(PySyntaxKind::Module);
+pub fn parse_module_suite(p: &mut PyParser) {
+    let m = p.mark(PySyntaxKind::Suite);
 
     p.init();
     while p.current_token() != PyTokenKind::TkEof {

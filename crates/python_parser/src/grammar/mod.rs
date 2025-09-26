@@ -1,7 +1,7 @@
 mod py;
 
 use crate::parser::CompleteMarker;
-pub use py::parse_module;
+pub use py::parse_module_suite;
 
 type ParseResult = Result<CompleteMarker, ParseFailReason>;
 

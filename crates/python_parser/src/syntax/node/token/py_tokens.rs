@@ -4,7 +4,9 @@ use crate::{
     syntax::{PySyntaxToken, traits::PyAstToken},
 };
 
-use super::{float_token_value, int_token_value, string_token_value};
+use super::{
+    float_token_value, int_token_value, py_number_analyzer::FloatOrLarge, string_token_value,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PyGeneralToken {
@@ -173,7 +175,13 @@ impl PyNumberToken {
 
     pub fn get_float_value(&self) -> f64 {
         if self.is_float() {
-            float_token_value(&self.token).unwrap_or(0.0)
+            match float_token_value(&self.token) {
+                Ok(FloatOrLarge::Float(val)) => val,
+                Ok(FloatOrLarge::Infinity) => f64::INFINITY,
+                Ok(FloatOrLarge::NegativeInfinity) => f64::NEG_INFINITY,
+                Ok(FloatOrLarge::NaN) => f64::NAN,
+                Err(_) => 0.0,
+            }
         } else {
             0.0
         }
