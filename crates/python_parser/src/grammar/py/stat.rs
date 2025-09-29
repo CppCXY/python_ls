@@ -166,6 +166,7 @@ fn parse_stat(p: &mut PyParser) -> ParseResult {
         PyTokenKind::TkYield => parse_yield_stmt(p)?,
         PyTokenKind::TkAsync => parse_async_stmt(p)?,
         PyTokenKind::TkMatch => parse_match(p)?,
+        PyTokenKind::TkType => parse_type_stmt(p)?, // Python 3.12+
         PyTokenKind::TkAt => parse_decorated(p)?,
         PyTokenKind::TkMatMul => parse_decorated(p)?, // @ can be TkMatMul in statement context
         PyTokenKind::TkNewline => parse_newline(p)?,
@@ -431,6 +432,46 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
         return Err(ParseFailReason::UnexpectedToken);
     }
 
+    // Optional type parameters (Python 3.12+: def func[T](...):)
+    if p.current_token() == PyTokenKind::TkLeftBracket {
+        p.bump(); // consume '['
+
+        // Parse type parameters
+        if p.current_token() != PyTokenKind::TkRightBracket {
+            loop {
+                // Parse type parameter (just identifier for now)
+                if p.current_token() == PyTokenKind::TkName {
+                    p.bump();
+                } else {
+                    p.push_error(PyParseError::syntax_error_from(
+                        "expected type parameter name",
+                        p.current_token_range(),
+                    ));
+                    break;
+                }
+
+                if p.current_token() == PyTokenKind::TkComma {
+                    p.bump();
+                    // Allow trailing comma
+                    if p.current_token() == PyTokenKind::TkRightBracket {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        if p.current_token() == PyTokenKind::TkRightBracket {
+            p.bump(); // consume ']'
+        } else {
+            p.push_error(PyParseError::syntax_error_from(
+                "expected ']' to close type parameter list",
+                p.current_token_range(),
+            ));
+        }
+    }
+
     // Parameters
     if p.current_token() == PyTokenKind::TkLeftParen {
         let param_m = p.mark(PySyntaxKind::Parameters);
@@ -518,6 +559,46 @@ fn parse_class(p: &mut PyParser) -> ParseResult {
             p.current_token_range(),
         ));
         return Err(ParseFailReason::UnexpectedToken);
+    }
+
+    // Optional type parameters (Python 3.12+: class Stack[T]:)
+    if p.current_token() == PyTokenKind::TkLeftBracket {
+        p.bump(); // consume '['
+
+        // Parse type parameters
+        if p.current_token() != PyTokenKind::TkRightBracket {
+            loop {
+                // Parse type parameter (just identifier for now)
+                if p.current_token() == PyTokenKind::TkName {
+                    p.bump();
+                } else {
+                    p.push_error(PyParseError::syntax_error_from(
+                        "expected type parameter name",
+                        p.current_token_range(),
+                    ));
+                    break;
+                }
+
+                if p.current_token() == PyTokenKind::TkComma {
+                    p.bump();
+                    // Allow trailing comma
+                    if p.current_token() == PyTokenKind::TkRightBracket {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        if p.current_token() == PyTokenKind::TkRightBracket {
+            p.bump(); // consume ']'
+        } else {
+            p.push_error(PyParseError::syntax_error_from(
+                "expected ']' to close type parameter list",
+                p.current_token_range(),
+            ));
+        }
     }
 
     // Optional inheritance
@@ -1363,13 +1444,46 @@ fn parse_match(p: &mut PyParser) -> ParseResult {
     Ok(m.complete(p))
 }
 
+// Parse pattern for case clause - temporarily use a simpler approach
+fn parse_pattern(p: &mut PyParser) -> ParseResult {
+    // Parse a simple pattern without conditional expressions
+    // We'll create a custom pattern parser that stops before 'if'
+    let m = p.mark(PySyntaxKind::ExprStmt);
+    
+    // Parse basic expressions until we hit 'if' or ':'
+    while !matches!(p.current_token(), 
+        PyTokenKind::TkIf | PyTokenKind::TkColon | PyTokenKind::TkEof | PyTokenKind::TkNewline
+    ) {
+        match p.current_token() {
+            PyTokenKind::TkName | PyTokenKind::TkInt | PyTokenKind::TkFloat | 
+            PyTokenKind::TkString | PyTokenKind::TkTrue | PyTokenKind::TkFalse | 
+            PyTokenKind::TkNone => {
+                p.bump();
+            }
+            PyTokenKind::TkLeftParen | PyTokenKind::TkLeftBracket | PyTokenKind::TkLeftBrace => {
+                p.bump();
+            }
+            PyTokenKind::TkRightParen | PyTokenKind::TkRightBracket | PyTokenKind::TkRightBrace => {
+                p.bump();
+            }
+            PyTokenKind::TkComma | PyTokenKind::TkDot | PyTokenKind::TkBitOr => {
+                p.bump();
+            }
+
+            _ => break,
+        }
+    }
+    
+    Ok(m.complete(p))
+}
+
 // Parse case clause
 fn parse_case_clause(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::CaseClause);
     p.bump(); // consume 'case'
 
-    // Parse pattern
-    if parse_expr(p).is_err() {
+    // Parse pattern (avoid conditional expression parsing)
+    if parse_pattern(p).is_err() {
         p.push_error(PyParseError::syntax_error_from(
             "expected pattern after 'case'",
             p.current_token_range(),
@@ -1405,6 +1519,84 @@ fn parse_case_clause(p: &mut PyParser) -> ParseResult {
     // Parse suite
     if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
+    }
+
+    Ok(m.complete(p))
+}
+
+// Parse type statement (Python 3.12+)
+fn parse_type_stmt(p: &mut PyParser) -> ParseResult {
+    let m = p.mark(PySyntaxKind::TypeStatement);
+    p.bump(); // consume 'type'
+
+    // Type alias name
+    if p.current_token() == PyTokenKind::TkName {
+        p.bump();
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            "expected type alias name after 'type'",
+            p.current_token_range(),
+        ));
+        return Err(ParseFailReason::UnexpectedToken);
+    }
+
+    // Optional type parameters (type Point[T] = ...)
+    if p.current_token() == PyTokenKind::TkLeftBracket {
+        p.bump(); // consume '['
+
+        // Parse type parameters
+        if p.current_token() != PyTokenKind::TkRightBracket {
+            loop {
+                // Parse type parameter (just identifier for now)
+                if p.current_token() == PyTokenKind::TkName {
+                    p.bump();
+                } else {
+                    p.push_error(PyParseError::syntax_error_from(
+                        "expected type parameter name",
+                        p.current_token_range(),
+                    ));
+                    break;
+                }
+
+                if p.current_token() == PyTokenKind::TkComma {
+                    p.bump();
+                    // Allow trailing comma
+                    if p.current_token() == PyTokenKind::TkRightBracket {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        if p.current_token() == PyTokenKind::TkRightBracket {
+            p.bump(); // consume ']'
+        } else {
+            p.push_error(PyParseError::syntax_error_from(
+                "expected ']' to close type parameter list",
+                p.current_token_range(),
+            ));
+        }
+    }
+
+    // Expect '='
+    if p.current_token() == PyTokenKind::TkAssign {
+        p.bump(); // consume '='
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            "expected '=' after type alias name",
+            p.current_token_range(),
+        ));
+        return Err(ParseFailReason::UnexpectedToken);
+    }
+
+    // Parse type expression
+    if parse_expr(p).is_err() {
+        p.push_error(PyParseError::syntax_error_from(
+            "expected type expression after '='",
+            p.current_token_range(),
+        ));
     }
 
     Ok(m.complete(p))

@@ -140,6 +140,7 @@ impl<'a> PyLexer<'a> {
             "return" => PyTokenKind::TkReturn,
             "try" => PyTokenKind::TkTry,
             "True" => PyTokenKind::TkTrue,
+            "type" => PyTokenKind::TkType,
             "while" => PyTokenKind::TkWhile,
             "with" => PyTokenKind::TkWith,
             "yield" => PyTokenKind::TkYield,

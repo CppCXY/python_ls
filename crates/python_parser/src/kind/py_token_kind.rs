@@ -39,6 +39,7 @@ pub enum PyTokenKind {
     TkReturn,   // return
     TkTry,      // try
     TkTrue,     // True
+    TkType,     // type (Python 3.12+)
     TkWhile,    // while
     TkWith,     // with
     TkYield,    // yield
@@ -173,6 +174,7 @@ impl PyTokenKind {
                 | PyTokenKind::TkReturn
                 | PyTokenKind::TkTry
                 | PyTokenKind::TkTrue
+                | PyTokenKind::TkType
                 | PyTokenKind::TkWhile
                 | PyTokenKind::TkWith
                 | PyTokenKind::TkYield
