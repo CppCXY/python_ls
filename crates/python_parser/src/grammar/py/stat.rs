@@ -1106,10 +1106,12 @@ fn parse_async_stmt(p: &mut PyParser) -> ParseResult {
 }
 
 fn parse_newline(p: &mut PyParser) -> ParseResult {
-    // In Python, a standalone newline represents an empty statement
-    let m = p.mark(PySyntaxKind::Newline);
+    // Simply consume the newline token without creating a syntax node
     p.bump(); // consume newline
-    Ok(m.complete(p))
+    
+    // Instead of creating a syntax node, we just consume the token
+    // and return as if nothing happened
+    Err(ParseFailReason::UnexpectedToken)
 }
 
 /// Consume optional newline at the end of simple statements

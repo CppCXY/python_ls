@@ -87,5 +87,8 @@ fn is_statement_start_token(token: PyTokenKind) -> bool {
             | PyTokenKind::TkNonlocal
             | PyTokenKind::TkYield
             | PyTokenKind::TkAsync
+            | PyTokenKind::TkMatch
+            | PyTokenKind::TkType
+            | PyTokenKind::TkAt // decorators
     )
 }
