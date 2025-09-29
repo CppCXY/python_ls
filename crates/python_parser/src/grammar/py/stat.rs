@@ -51,6 +51,21 @@ fn parse_suite_with_docstring(p: &mut PyParser, expect_docstring: bool) -> Parse
     Ok(m.complete(p))
 }
 
+/// Helper function to consume newline and any additional empty lines
+fn consume_newlines_and_check_indent(p: &mut PyParser) -> bool {
+    if p.current_token() == PyTokenKind::TkNewline {
+        p.bump(); // consume newline
+
+        // Consume any additional newlines (empty lines)
+        while p.current_token() == PyTokenKind::TkNewline {
+            p.bump();
+        }
+
+        return p.current_token() == PyTokenKind::TkIndent;
+    }
+    false
+}
+
 /// Push expression parsing error with lazy error message generation
 fn push_expr_error_lazy<F>(p: &mut PyParser, error_msg_fn: F)
 where
@@ -208,17 +223,8 @@ fn parse_if(p: &mut PyParser) -> ParseResult {
     }
 
     // Handle body: either indented block or simple statement
-    if p.current_token() == PyTokenKind::TkNewline {
-        p.bump();
-        // After newline, expect indented block
-        if p.current_token() == PyTokenKind::TkIndent {
-            parse_suite(p)?;
-        } else {
-            p.push_error(PyParseError::syntax_error_from(
-                &t!("expected indented block after ':'"),
-                p.current_token_range(),
-            ));
-        }
+    if consume_newlines_and_check_indent(p) {
+        parse_suite(p)?;
     } else if p.current_token() == PyTokenKind::TkIndent {
         // Direct indented block
         parse_suite(p)?;
@@ -257,12 +263,10 @@ fn parse_elif_clause(p: &mut PyParser) -> ParseResult {
         t!("expected ':' after 'elif' condition")
     });
 
-    // Consume optional newline before indented block
-    if p.current_token() == PyTokenKind::TkNewline {
-        p.bump();
-    }
-
-    if p.current_token() == PyTokenKind::TkIndent {
+    // Consume newlines and check for indented block
+    if consume_newlines_and_check_indent(p) {
+        parse_suite(p)?;
+    } else if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
     }
 
@@ -275,12 +279,10 @@ fn parse_else_clause(p: &mut PyParser) -> ParseResult {
 
     expect_keyword_with_recovery(p, PyTokenKind::TkColon, || t!("expected ':' after 'else'"));
 
-    // Consume optional newline before indented block
-    if p.current_token() == PyTokenKind::TkNewline {
-        p.bump();
-    }
-
-    if p.current_token() == PyTokenKind::TkIndent {
+    // Consume newlines and check for indented block
+    if consume_newlines_and_check_indent(p) {
+        parse_suite(p)?;
+    } else if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
     }
 
@@ -304,13 +306,10 @@ fn parse_while(p: &mut PyParser) -> ParseResult {
         recover_to_keywords(p, &[PyTokenKind::TkNewline, PyTokenKind::TkIndent]);
     }
 
-    // Consume optional newline after colon
-    if p.current_token() == PyTokenKind::TkNewline {
-        p.bump();
-    }
-
-    // Parse suite (indented block)
-    if p.current_token() == PyTokenKind::TkIndent {
+    // Consume newlines and parse suite
+    if consume_newlines_and_check_indent(p) {
+        parse_suite(p)?;
+    } else if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
     } else {
         p.push_error(PyParseError::syntax_error_from(
@@ -374,13 +373,10 @@ fn parse_for_body(p: &mut PyParser) -> Result<(), ParseFailReason> {
         ));
     }
 
-    // Consume optional newline after colon
-    if p.current_token() == PyTokenKind::TkNewline {
-        p.bump();
-    }
-
-    // Parse suite (indented block)
-    if p.current_token() == PyTokenKind::TkIndent {
+    // Consume newlines and parse suite
+    if consume_newlines_and_check_indent(p) {
+        parse_suite(p)?;
+    } else if p.current_token() == PyTokenKind::TkIndent {
         parse_suite(p)?;
     } else {
         p.push_error(PyParseError::syntax_error_from(
@@ -528,6 +524,12 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
     // Body
     if p.current_token() == PyTokenKind::TkNewline {
         p.bump(); // consume newline
+
+        // Consume any additional newlines (empty lines)
+        while p.current_token() == PyTokenKind::TkNewline {
+            p.bump();
+        }
+
         if p.current_token() == PyTokenKind::TkIndent {
             parse_suite_with_docstring(p, true)?;
         } else {
@@ -658,6 +660,12 @@ fn parse_class(p: &mut PyParser) -> ParseResult {
     // Body
     if p.current_token() == PyTokenKind::TkNewline {
         p.bump(); // consume newline
+
+        // Consume any additional newlines (empty lines)
+        while p.current_token() == PyTokenKind::TkNewline {
+            p.bump();
+        }
+
         if p.current_token() == PyTokenKind::TkIndent {
             parse_suite_with_docstring(p, true)?;
         } else {
