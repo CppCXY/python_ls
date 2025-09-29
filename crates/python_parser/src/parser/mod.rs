@@ -7,5 +7,5 @@ mod py_parser;
 #[allow(unused)]
 pub use marker::*;
 #[allow(unused)]
-pub use parser_config::{ParserConfig, SpecialFunction};
+pub use parser_config::ParserConfig;
 pub use py_parser::PyParser;

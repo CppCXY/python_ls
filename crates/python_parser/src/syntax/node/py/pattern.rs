@@ -108,13 +108,9 @@ impl PyAstNode for PyPattern {
             PySyntaxKind::WildcardPattern => {
                 PyWildcardPattern::cast(syntax).map(PyPattern::WildcardPattern)
             }
-            PySyntaxKind::ValuePattern => {
-                PyValuePattern::cast(syntax).map(PyPattern::ValuePattern)
-            }
+            PySyntaxKind::ValuePattern => PyValuePattern::cast(syntax).map(PyPattern::ValuePattern),
             PySyntaxKind::BindPattern => PyBindPattern::cast(syntax).map(PyPattern::BindPattern),
-            PySyntaxKind::ClassPattern => {
-                PyClassPattern::cast(syntax).map(PyPattern::ClassPattern)
-            }
+            PySyntaxKind::ClassPattern => PyClassPattern::cast(syntax).map(PyPattern::ClassPattern),
             PySyntaxKind::SequencePattern => {
                 PySequencePattern::cast(syntax).map(PyPattern::SequencePattern)
             }

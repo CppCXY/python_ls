@@ -41,21 +41,11 @@ impl<'cache> ParserConfig<'cache> {
 impl Default for ParserConfig<'_> {
     fn default() -> Self {
         Self {
-            level: PyLanguageLevel::Py3,
+            level: PyLanguageLevel::default(),
             lexer_config: LexerConfig {
-                language_level: PyLanguageLevel::Py3,
+                language_level: PyLanguageLevel::default(),
             },
             node_cache: None,
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SpecialFunction {
-    None,
-    Require,
-    Error,
-    Assert,
-    Type,
-    Setmetaatable,
 }

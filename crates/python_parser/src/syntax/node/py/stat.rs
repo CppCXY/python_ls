@@ -263,12 +263,8 @@ impl PyAstNode for PyStat {
                 PyExceptStarClause::cast(syntax).map(PyStat::ExceptStarClause)
             }
             // Python 3.12+ Type Parameters and Type Statements
-            PySyntaxKind::TypeStatement => {
-                PyTypeStatement::cast(syntax).map(PyStat::TypeStatement)
-            }
-            PySyntaxKind::TypeAliasStmt => {
-                PyTypeAliasStmt::cast(syntax).map(PyStat::TypeAliasStmt)
-            }
+            PySyntaxKind::TypeStatement => PyTypeStatement::cast(syntax).map(PyStat::TypeStatement),
+            PySyntaxKind::TypeAliasStmt => PyTypeAliasStmt::cast(syntax).map(PyStat::TypeAliasStmt),
             PySyntaxKind::GenericFuncDef => {
                 PyGenericFuncDef::cast(syntax).map(PyStat::GenericFuncDef)
             }
@@ -277,9 +273,7 @@ impl PyAstNode for PyStat {
             }
             // Python 3.14+ Experimental Features
             PySyntaxKind::Decorated => PyDecorated::cast(syntax).map(PyStat::Decorated),
-            PySyntaxKind::AsyncCompStmt => {
-                PyAsyncCompStmt::cast(syntax).map(PyStat::AsyncCompStmt)
-            }
+            PySyntaxKind::AsyncCompStmt => PyAsyncCompStmt::cast(syntax).map(PyStat::AsyncCompStmt),
             _ => None,
         }
     }

@@ -103,7 +103,7 @@ impl<'a> PyLexer<'a> {
         self.tokenize()
     }
 
-    fn name_to_kind(&self, name: &str) -> PyTokenKind {
+    fn name_to_kind(&mut self, name: &str) -> PyTokenKind {
         match name {
             // Python keywords
             "and" => PyTokenKind::TkAnd,
@@ -112,7 +112,14 @@ impl<'a> PyLexer<'a> {
             "async" => PyTokenKind::TkAsync,
             "await" => PyTokenKind::TkAwait,
             "break" => PyTokenKind::TkBreak,
-            "case" => PyTokenKind::TkCase,
+            "case" => {
+                // Check version support - if not supported, treat as name
+                if self.lexer_config.language_level.support_match_statement() {
+                    PyTokenKind::TkCase
+                } else {
+                    PyTokenKind::TkName
+                }
+            }
             "class" => PyTokenKind::TkClass,
             "continue" => PyTokenKind::TkContinue,
             "def" => PyTokenKind::TkDef,
@@ -130,7 +137,14 @@ impl<'a> PyLexer<'a> {
             "in" => PyTokenKind::TkIn,
             "is" => PyTokenKind::TkIs,
             "lambda" => PyTokenKind::TkLambda,
-            "match" => PyTokenKind::TkMatch,
+            "match" => {
+                // Check version support - if not supported, treat as name
+                if self.lexer_config.language_level.support_match_statement() {
+                    PyTokenKind::TkMatch
+                } else {
+                    PyTokenKind::TkName
+                }
+            }
             "nonlocal" => PyTokenKind::TkNonlocal,
             "None" => PyTokenKind::TkNone,
             "not" => PyTokenKind::TkNot,
@@ -140,7 +154,14 @@ impl<'a> PyLexer<'a> {
             "return" => PyTokenKind::TkReturn,
             "try" => PyTokenKind::TkTry,
             "True" => PyTokenKind::TkTrue,
-            "type" => PyTokenKind::TkType,
+            "type" => {
+                // Check version support - if not supported, treat as name
+                if self.lexer_config.language_level.support_type_statements() {
+                    PyTokenKind::TkType
+                } else {
+                    PyTokenKind::TkName
+                }
+            }
             "while" => PyTokenKind::TkWhile,
             "with" => PyTokenKind::TkWith,
             "yield" => PyTokenKind::TkYield,

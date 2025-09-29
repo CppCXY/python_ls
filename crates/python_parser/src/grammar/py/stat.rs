@@ -434,6 +434,9 @@ fn parse_def(p: &mut PyParser) -> ParseResult {
 
     // Optional type parameters (Python 3.12+: def func[T](...):)
     if p.current_token() == PyTokenKind::TkLeftBracket {
+        // Check version support and emit warning if needed
+        p.check_type_parameter_support();
+
         p.bump(); // consume '['
 
         // Parse type parameters
@@ -563,6 +566,9 @@ fn parse_class(p: &mut PyParser) -> ParseResult {
 
     // Optional type parameters (Python 3.12+: class Stack[T]:)
     if p.current_token() == PyTokenKind::TkLeftBracket {
+        // Check version support and emit warning if needed
+        p.check_type_parameter_support();
+
         p.bump(); // consume '['
 
         // Parse type parameters
@@ -1403,6 +1409,10 @@ fn parse_class_with_decorators(p: &mut PyParser) -> ParseResult {
 // Parse match statement (Python 3.10+)
 fn parse_match(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::MatchStmt);
+
+    // Check version support and emit warning if needed
+    p.check_match_statement_support();
+
     p.bump(); // consume 'match'
 
     // Parse the subject expression
@@ -1449,15 +1459,20 @@ fn parse_pattern(p: &mut PyParser) -> ParseResult {
     // Parse a simple pattern without conditional expressions
     // We'll create a custom pattern parser that stops before 'if'
     let m = p.mark(PySyntaxKind::ExprStmt);
-    
+
     // Parse basic expressions until we hit 'if' or ':'
-    while !matches!(p.current_token(), 
+    while !matches!(
+        p.current_token(),
         PyTokenKind::TkIf | PyTokenKind::TkColon | PyTokenKind::TkEof | PyTokenKind::TkNewline
     ) {
         match p.current_token() {
-            PyTokenKind::TkName | PyTokenKind::TkInt | PyTokenKind::TkFloat | 
-            PyTokenKind::TkString | PyTokenKind::TkTrue | PyTokenKind::TkFalse | 
-            PyTokenKind::TkNone => {
+            PyTokenKind::TkName
+            | PyTokenKind::TkInt
+            | PyTokenKind::TkFloat
+            | PyTokenKind::TkString
+            | PyTokenKind::TkTrue
+            | PyTokenKind::TkFalse
+            | PyTokenKind::TkNone => {
                 p.bump();
             }
             PyTokenKind::TkLeftParen | PyTokenKind::TkLeftBracket | PyTokenKind::TkLeftBrace => {
@@ -1473,7 +1488,7 @@ fn parse_pattern(p: &mut PyParser) -> ParseResult {
             _ => break,
         }
     }
-    
+
     Ok(m.complete(p))
 }
 
@@ -1527,6 +1542,10 @@ fn parse_case_clause(p: &mut PyParser) -> ParseResult {
 // Parse type statement (Python 3.12+)
 fn parse_type_stmt(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::TypeStatement);
+
+    // Check version support and emit warning if needed
+    p.check_type_statement_support();
+
     p.bump(); // consume 'type'
 
     // Type alias name

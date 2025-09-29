@@ -153,6 +153,18 @@ fn parse_sub_expr(p: &mut PyParser, limit: i32) -> ParseResult {
         } else {
             // Regular binary operators
             let m = cm.precede(p, PySyntaxKind::BinaryExpr);
+
+            // Check for union types (Python 3.10+)
+            if bop == BinaryOperator::OpBitOr {
+                // This could be a union type if used in type annotation context
+                // For now, we'll emit a general warning for | operator usage
+                p.check_version_warning(
+                    &t!("syntax.union_type_operator"),
+                    p.parse_config.level.support_union_types(),
+                    "Python 3.10+",
+                );
+            }
+
             p.bump();
             match parse_sub_expr(p, bop.get_priority().right) {
                 Ok(_) => {}

@@ -701,16 +701,13 @@ def fibonacci(n):
             // Dictionary merge operators (PEP 584)
             "d = {'a': 1} | {'b': 2}",
             "d |= {'c': 3}",
-            
             // String prefix/suffix removal (using methods, syntax same as before)
             r#"name = "hello_world""#,
-            
             // Type hinting improvements with built-in collections
             r#"def func(items: list[str]) -> dict[str, int]:
     pass"#,
             r#"def func(mapping: dict[str, list[int]]) -> set[str]:
     pass"#,
-            
             // Decorators on any expression (not just dotted names)
             r#"@(lambda f: f)
 def decorated_func():
@@ -739,7 +736,6 @@ match value:
     case _:
         print("default")
 "#,
-
             // Pattern matching with destructuring
             r#"
 match point:
@@ -752,7 +748,6 @@ match point:
     case (x, y):
         print(f"at ({x}, {y})")
 "#,
-
             // Union types with | (PEP 604)
             r#"def func(x: int | str) -> bool | None:
     pass"#,
@@ -763,7 +758,7 @@ match point:
     }
 
     /// Test Python 3.11+ features
-    #[test] 
+    #[test]
     fn test_python311_features() {
         println!("=== Testing Python 3.11+ Features ===");
 
@@ -777,7 +772,6 @@ except* ValueError as eg:
 except* TypeError as eg:
     print("caught TypeError group")
 "#,
-
             // Task groups in asyncio
             r#"
 async def main():
@@ -785,17 +779,15 @@ async def main():
         task1 = tg.create_task(async_func1())
         task2 = tg.create_task(async_func2())
 "#,
-
             // Generic type syntax improvements (moved to Python 3.12)
             // These will be implemented in Python 3.12 test section
-            
+
             // Self type annotation
             r#"
 class MyClass:
     def clone(self) -> Self:
         return MyClass()
 "#,
-
             // Required and NotRequired in TypedDict
             r#"
 from typing import TypedDict, Required, NotRequired
@@ -818,21 +810,17 @@ class Movie(TypedDict):
         let python312_features = &[
             // Type parameter syntax (PEP 695)
             "type Point = tuple[float, float]",
-            "type IntOrStr = int | str", 
+            "type IntOrStr = int | str",
             "type ListOfStrings = list[str]",
-            
             // Generic classes with type parameters
             r#"class Stack[T]:
     pass"#,
-
             // Generic functions with type parameters
             r#"def first[T](items: list[T]) -> T:
     return items[0]"#,
-
             // Buffer protocol improvements (syntax unchanged, but semantics improved)
             "memoryview(b'hello world')",
-            
-            // F-string improvements 
+            // F-string improvements
             r#"f"debug {value=}""#,
         ];
 
@@ -848,13 +836,13 @@ class Movie(TypedDict):
         let python313_features = &[
             // Free-threaded CPython support (no syntax changes)
             // Experimental JIT compiler (no syntax changes)
-            
+
             // Improved error messages (no syntax changes)
-            
+
             // Removal of deprecated features (syntax should still parse)
-            
+
             // New REPL features (no syntax changes)
-            
+
             // Type system improvements
             r#"
 from typing import override
@@ -868,14 +856,12 @@ class Derived(Base):
     def method(self) -> int:
         return 2
 "#,
-
             // Enhanced pathlib
             r#"
 from pathlib import Path
 path = Path("example.txt")
 "#,
-
-            // Improved dataclasses  
+            // Improved dataclasses
             r#"
 from dataclasses import dataclass
 
@@ -891,7 +877,7 @@ class Point:
     }
 
     /// Test Python 3.14+ features (experimental/proposed)
-    #[test] 
+    #[test]
     fn test_python314_features() {
         println!("=== Testing Python 3.14+ Features (Experimental) ===");
 
@@ -904,13 +890,11 @@ match data:
     case {"type": "user", "name": str(name), "age": int(age)}:
         print(f"Minor user: {name}")
 "#,
-
             // Enhanced type annotations
             r#"
 def process[T: (int, str)](value: T) -> T:
     return value
 "#,
-
             // Improved async/await
             r#"
 async def enhanced_async():
@@ -918,7 +902,6 @@ async def enhanced_async():
         result = await long_operation()
         return result
 "#,
-
             // Multiple context managers improvements
             r#"
 with (
@@ -928,13 +911,10 @@ with (
 ):
     use_resources(r1, r2, r3)
 "#,
-
             // Enhanced comprehensions
             "[x async for x in async_iter if await condition(x)]",
-            
             // Improved operator precedence and new operators (hypothetical)
-            "result = a ?? b",  // Null coalescing (hypothetical)
-            
+            "result = a ?? b", // Null coalescing (hypothetical)
             // Enhanced match expressions (hypothetical)
             "value = case x: 1 -> 'one'; 2 -> 'two'; _ -> 'other'",
         ];
@@ -954,7 +934,8 @@ with (
     /// Comprehensive test summary for Python language support
     #[test]
     fn test_python_language_support_summary() {
-        println!("
+        println!(
+            "
 === Python Language Support Summary ===
 
 ✅ Fully Supported (Python 3.8+):
@@ -1017,7 +998,8 @@ with (
   • Match statements for casting
   • Zero-cost abstractions
   • Compile-time optimizations
-");
+"
+        );
     }
 
     /// Final summary of Python 3.14 upgrade achievements

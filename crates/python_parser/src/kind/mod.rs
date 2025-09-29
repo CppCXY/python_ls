@@ -4,6 +4,7 @@ mod py_syntax_kind;
 mod py_token_kind;
 mod py_version;
 mod py_visibility_kind;
+mod version_warning_tests;
 
 pub use py_language_level::PyLanguageLevel;
 pub use py_operator_kind::{BinaryOperator, UNARY_PRIORITY, UnaryOperator};

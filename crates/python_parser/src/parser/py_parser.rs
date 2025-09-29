@@ -332,6 +332,70 @@ impl<'a> PyParser<'a> {
             self.bump();
         }
     }
+
+    /// Check if a feature is supported by the current language level and emit warning if not
+    pub fn check_version_warning(
+        &mut self,
+        feature_name: &str,
+        is_supported: bool,
+        required_version: &str,
+    ) {
+        if !is_supported {
+            let warning_message = t!(
+                "version_warning.syntax",
+                feature = feature_name,
+                version = required_version
+            );
+            let range = self.current_token_range();
+            self.errors
+                .push(PyParseError::version_warning_from(&warning_message, range));
+        }
+    }
+
+    /// Check if match statement is supported and emit warning if not
+    pub fn check_match_statement_support(&mut self) {
+        self.check_version_warning(
+            &t!("syntax.match_statement"),
+            self.parse_config.level.support_match_statement(),
+            "Python 3.10+",
+        );
+    }
+
+    /// Check if union types are supported and emit warning if not
+    pub fn check_union_type_support(&mut self) {
+        self.check_version_warning(
+            &t!("syntax.union_type"),
+            self.parse_config.level.support_union_types(),
+            "Python 3.10+",
+        );
+    }
+
+    /// Check if exception groups are supported and emit warning if not
+    pub fn check_exception_group_support(&mut self) {
+        self.check_version_warning(
+            &t!("syntax.exception_group"),
+            self.parse_config.level.support_exception_groups(),
+            "Python 3.11+",
+        );
+    }
+
+    /// Check if type parameters are supported and emit warning if not
+    pub fn check_type_parameter_support(&mut self) {
+        self.check_version_warning(
+            &t!("syntax.type_parameter"),
+            self.parse_config.level.support_type_parameters(),
+            "Python 3.12+",
+        );
+    }
+
+    /// Check if type statements are supported and emit warning if not
+    pub fn check_type_statement_support(&mut self) {
+        self.check_version_warning(
+            &t!("syntax.type_statement"),
+            self.parse_config.level.support_type_statements(),
+            "Python 3.12+",
+        );
+    }
 }
 
 fn is_trivia_kind(kind: PyTokenKind) -> bool {

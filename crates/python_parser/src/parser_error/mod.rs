@@ -6,6 +6,7 @@ use crate::text::SourceRange;
 pub enum PyParseErrorKind {
     SyntaxError,
     DocError,
+    VersionWarning, // Warning for features that require newer Python versions
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,6 +36,14 @@ impl PyParseError {
     pub fn doc_error_from(message: &str, range: SourceRange) -> Self {
         PyParseError {
             kind: PyParseErrorKind::DocError,
+            message: message.to_string(),
+            range: range.into(),
+        }
+    }
+
+    pub fn version_warning_from(message: &str, range: SourceRange) -> Self {
+        PyParseError {
+            kind: PyParseErrorKind::VersionWarning,
             message: message.to_string(),
             range: range.into(),
         }

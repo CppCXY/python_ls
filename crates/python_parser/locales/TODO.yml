@@ -208,3 +208,45 @@ unexpected token '%{token}', expected expression:
   zh_CN: unexpected token '%{token}', expected expression
   zh_HK: unexpected token '%{token}', expected expression
 
+# Version warning messages
+version_warning.keyword:
+  en: "Using '%{keyword}' keyword, but current Python version doesn't support this feature. Requires %{version}"
+  zh_CN: "使用了 '%{keyword}' 关键字，但当前Python版本不支持此功能。需要 %{version}"
+  zh_HK: "使用了 '%{keyword}' 關鍵字，但當前Python版本不支持此功能。需要 %{version}"
+
+version_warning.syntax:
+  en: "Using '%{feature}' syntax, but current Python version doesn't support this feature. Requires %{version}"
+  zh_CN: "使用了 '%{feature}' 语法，但当前Python版本不支持此功能。需要 %{version}"
+  zh_HK: "使用了 '%{feature}' 語法，但當前Python版本不支持此功能。需要 %{version}"
+
+# Syntax feature names
+syntax.match_statement:
+  en: match statement
+  zh_CN: match语句
+  zh_HK: match語句
+
+syntax.union_type:
+  en: union type (|)
+  zh_CN: 联合类型 (|)
+  zh_HK: 聯合類型 (|)
+
+syntax.union_type_operator:
+  en: union type operator |
+  zh_CN: 联合类型操作符 |
+  zh_HK: 聯合類型操作符 |
+
+syntax.exception_group:
+  en: exception group (except*)
+  zh_CN: 异常组 (except*)
+  zh_HK: 異常組 (except*)
+
+syntax.type_parameter:
+  en: type parameter [T]
+  zh_CN: 类型参数 [T]
+  zh_HK: 類型參數 [T]
+
+syntax.type_statement:
+  en: type statement
+  zh_CN: type语句
+  zh_HK: type語句
+
