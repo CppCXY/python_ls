@@ -90,6 +90,54 @@ pub enum PySyntaxKind {
     StarredExpr,       // *expression
     DoubleStarredExpr, // **expression
 
+    // Python 3.9+ features
+    DictMergeExpr,     // dictionary merge with | operator
+    DictUpdateExpr,    // dictionary update with |= operator
+    
+    // Python 3.10+ features  
+    MatchExpr,         // match expression (hypothetical)
+    GuardClause,       // guard clause in pattern matching (if condition)
+    WildcardPattern,   // _ wildcard pattern
+    ValuePattern,      // literal value pattern
+    BindPattern,       // variable binding pattern
+    ClassPattern,      // class pattern matching
+    SequencePattern,   // sequence pattern (list/tuple)
+    MappingPattern,    // mapping pattern (dict)
+    OrPattern,         // | pattern (pattern1 | pattern2)
+    UnionType,         // union type with | (int | str)
+    
+    // Python 3.11+ features
+    TryStarStmt,       // try* statement for exception groups
+    ExceptStarClause,  // except* clause
+    ExceptGroupStmt,   // except* statement for exception groups  
+    TaskGroup,         // async task group
+    TypeParam,         // generic type parameter [T]
+    TypeConstraint,    // type constraint [T: int | str]
+    SelfType,          // Self type annotation
+    
+    // Python 3.12+ features
+    TypeStatement,     // type alias statement (type X = Y)
+    TypeAliasStmt,     // type alias statement
+    GenericFuncDef,    // function with type parameters
+    GenericClassDef,   // class with type parameters
+    GenericClass,      // class with type parameters
+    GenericFunction,   // function with type parameters
+    TypeParameters,    // type parameter list
+    
+    // Python 3.13+ features
+    OverrideDecorator, // @override decorator
+    FrozenDataclass,   // frozen dataclass enhancement
+    SlottedDataclass,  // slotted dataclass enhancement
+    
+    // Python 3.14+ features (experimental)
+    NullCoalescing,    // ?? null coalescing operator (hypothetical)
+    MatchExpression,   // match as expression (hypothetical)
+    AsyncComprehension,// async comprehension enhancements
+    AsyncCompStmt,     // async comprehensive statement
+    TimeoutContext,    // async timeout context
+    EnhancedPattern,   // enhanced pattern matching
+    Decorated,         // decorated statement
+    
     // Other nodes
     Parameter,  // function parameter
     Parameters, // parameter list

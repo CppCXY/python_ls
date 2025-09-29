@@ -68,7 +68,16 @@ py_expr_ast!(
     PyListCompExpr: ListCompExpr,
     PyDictCompExpr: DictCompExpr,
     PySetCompExpr: SetCompExpr,
-    PyGeneratorExpr: GeneratorExpr
+    PyGeneratorExpr: GeneratorExpr,
+    // Python 3.9+ expressions
+    PyDictMergeExpr: DictMergeExpr,
+    PyDictUpdateExpr: DictUpdateExpr,
+    // Python 3.10+ expressions
+    PyUnionTypeExpr: UnionType,
+    PyMatchExpr: MatchExpr,
+    // Python 3.14+ expressions (experimental)
+    PyNullCoalescingExpr: NullCoalescing,
+    PyAsyncComprehensionExpr: AsyncComprehension
 );
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

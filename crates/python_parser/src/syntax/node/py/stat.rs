@@ -68,7 +68,18 @@ py_stat_ast!(
     PyImportFromStmt: ImportFromStmt,
     PyMatchStmt: MatchStmt,
     PyElseStmt: ElseClause,
-    PyElifStmt: ElifClause
+    PyElifStmt: ElifClause,
+    // Python 3.11+ Exception Groups
+    PyTryStarStmt: TryStarStmt,
+    PyExceptStarClause: ExceptStarClause,
+    // Python 3.12+ Type Parameters and Type Statements
+    PyTypeStatement: TypeStatement,
+    PyTypeAliasStmt: TypeAliasStmt,
+    PyGenericFuncDef: GenericFuncDef,
+    PyGenericClassDef: GenericClassDef,
+    // Python 3.14+ Experimental Features
+    PyDecorated: Decorated,
+    PyAsyncCompStmt: AsyncCompStmt
 );
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -102,6 +113,17 @@ pub enum PyStat {
     MatchStmt(PyMatchStmt),
     ElseStmt(PyElseStmt),
     ElifStmt(PyElifStmt),
+    // Python 3.11+ Exception Groups
+    TryStarStmt(PyTryStarStmt),
+    ExceptStarClause(PyExceptStarClause),
+    // Python 3.12+ Type Parameters and Type Statements
+    TypeStatement(PyTypeStatement),
+    TypeAliasStmt(PyTypeAliasStmt),
+    GenericFuncDef(PyGenericFuncDef),
+    GenericClassDef(PyGenericClassDef),
+    // Python 3.14+ Experimental Features
+    Decorated(PyDecorated),
+    AsyncCompStmt(PyAsyncCompStmt),
 }
 
 impl PyAstNode for PyStat {
@@ -136,6 +158,17 @@ impl PyAstNode for PyStat {
             PyStat::MatchStmt(node) => node.syntax(),
             PyStat::ElseStmt(node) => node.syntax(),
             PyStat::ElifStmt(node) => node.syntax(),
+            // Python 3.11+ Exception Groups
+            PyStat::TryStarStmt(node) => node.syntax(),
+            PyStat::ExceptStarClause(node) => node.syntax(),
+            // Python 3.12+ Type Parameters and Type Statements
+            PyStat::TypeStatement(node) => node.syntax(),
+            PyStat::TypeAliasStmt(node) => node.syntax(),
+            PyStat::GenericFuncDef(node) => node.syntax(),
+            PyStat::GenericClassDef(node) => node.syntax(),
+            // Python 3.14+ Experimental Features
+            PyStat::Decorated(node) => node.syntax(),
+            PyStat::AsyncCompStmt(node) => node.syntax(),
         }
     }
 
@@ -174,6 +207,17 @@ impl PyAstNode for PyStat {
                 | PySyntaxKind::MatchStmt
                 | PySyntaxKind::ElseClause
                 | PySyntaxKind::ElifClause
+                // Python 3.11+ Exception Groups
+                | PySyntaxKind::TryStarStmt
+                | PySyntaxKind::ExceptStarClause
+                // Python 3.12+ Type Parameters and Type Statements
+                | PySyntaxKind::TypeStatement
+                | PySyntaxKind::TypeAliasStmt
+                | PySyntaxKind::GenericFuncDef
+                | PySyntaxKind::GenericClassDef
+                // Python 3.14+ Experimental Features
+                | PySyntaxKind::Decorated
+                | PySyntaxKind::AsyncCompStmt
         )
     }
 
@@ -213,6 +257,29 @@ impl PyAstNode for PyStat {
             PySyntaxKind::MatchStmt => PyMatchStmt::cast(syntax).map(PyStat::MatchStmt),
             PySyntaxKind::ElseClause => PyElseStmt::cast(syntax).map(PyStat::ElseStmt),
             PySyntaxKind::ElifClause => PyElifStmt::cast(syntax).map(PyStat::ElifStmt),
+            // Python 3.11+ Exception Groups
+            PySyntaxKind::TryStarStmt => PyTryStarStmt::cast(syntax).map(PyStat::TryStarStmt),
+            PySyntaxKind::ExceptStarClause => {
+                PyExceptStarClause::cast(syntax).map(PyStat::ExceptStarClause)
+            }
+            // Python 3.12+ Type Parameters and Type Statements
+            PySyntaxKind::TypeStatement => {
+                PyTypeStatement::cast(syntax).map(PyStat::TypeStatement)
+            }
+            PySyntaxKind::TypeAliasStmt => {
+                PyTypeAliasStmt::cast(syntax).map(PyStat::TypeAliasStmt)
+            }
+            PySyntaxKind::GenericFuncDef => {
+                PyGenericFuncDef::cast(syntax).map(PyStat::GenericFuncDef)
+            }
+            PySyntaxKind::GenericClassDef => {
+                PyGenericClassDef::cast(syntax).map(PyStat::GenericClassDef)
+            }
+            // Python 3.14+ Experimental Features
+            PySyntaxKind::Decorated => PyDecorated::cast(syntax).map(PyStat::Decorated),
+            PySyntaxKind::AsyncCompStmt => {
+                PyAsyncCompStmt::cast(syntax).map(PyStat::AsyncCompStmt)
+            }
             _ => None,
         }
     }

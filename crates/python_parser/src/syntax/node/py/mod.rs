@@ -1,10 +1,12 @@
 pub mod common;
 pub mod expr;
+pub mod pattern;
 pub mod stat;
 mod test;
 
 pub use common::*;
 pub use expr::*;
+pub use pattern::*;
 pub use stat::*;
 
 use crate::{
@@ -53,6 +55,17 @@ pub enum PyAst {
     MatchStmt(PyMatchStmt),
     ElseStmt(PyElseStmt),
     ElifStmt(PyElifStmt),
+    // Python 3.11+ Exception Groups
+    TryStarStmt(PyTryStarStmt),
+    ExceptStarClause(PyExceptStarClause),
+    // Python 3.12+ Type Parameters and Type Statements
+    TypeStatement(PyTypeStatement),
+    TypeAliasStmt(PyTypeAliasStmt),
+    GenericFuncDef(PyGenericFuncDef),
+    GenericClassDef(PyGenericClassDef),
+    // Python 3.14+ Experimental Features
+    Decorated(PyDecorated),
+    AsyncCompStmt(PyAsyncCompStmt),
 
     // Expression types
     NameExpr(PyNameExpr),
@@ -84,6 +97,25 @@ pub enum PyAst {
     DictCompExpr(PyDictCompExpr),
     SetCompExpr(PySetCompExpr),
     GeneratorExpr(PyGeneratorExpr),
+    // Python 3.9+ Features
+    DictMergeExpr(PyDictMergeExpr),
+    UnionTypeExpr(PyUnionTypeExpr),
+    // Python 3.10+ Features
+    MatchExpr(PyMatchExpr),
+    // Python 3.14+ Features
+    NullCoalescingExpr(PyNullCoalescingExpr),
+    AsyncComprehensionExpr(PyAsyncComprehensionExpr),
+
+    // Pattern types (Python 3.10+)
+    WildcardPattern(PyWildcardPattern),
+    ValuePattern(PyValuePattern),
+    BindPattern(PyBindPattern),
+    ClassPattern(PyClassPattern),
+    SequencePattern(PySequencePattern),
+    MappingPattern(PyMappingPattern),
+    OrPattern(PyOrPattern),
+    GuardClause(PyGuardClause),
+    EnhancedPattern(PyEnhancedPattern),
 }
 
 impl PyAstNode for PyAst {
@@ -127,6 +159,17 @@ impl PyAstNode for PyAst {
             PyAst::MatchStmt(node) => node.syntax(),
             PyAst::ElseStmt(node) => node.syntax(),
             PyAst::ElifStmt(node) => node.syntax(),
+            // Python 3.11+ Exception Groups
+            PyAst::TryStarStmt(node) => node.syntax(),
+            PyAst::ExceptStarClause(node) => node.syntax(),
+            // Python 3.12+ Type Parameters and Type Statements
+            PyAst::TypeStatement(node) => node.syntax(),
+            PyAst::TypeAliasStmt(node) => node.syntax(),
+            PyAst::GenericFuncDef(node) => node.syntax(),
+            PyAst::GenericClassDef(node) => node.syntax(),
+            // Python 3.14+ Experimental Features
+            PyAst::Decorated(node) => node.syntax(),
+            PyAst::AsyncCompStmt(node) => node.syntax(),
 
             // Expression types
             PyAst::NameExpr(node) => node.syntax(),
@@ -158,6 +201,25 @@ impl PyAstNode for PyAst {
             PyAst::DictCompExpr(node) => node.syntax(),
             PyAst::SetCompExpr(node) => node.syntax(),
             PyAst::GeneratorExpr(node) => node.syntax(),
+            // Python 3.9+ Features
+            PyAst::DictMergeExpr(node) => node.syntax(),
+            PyAst::UnionTypeExpr(node) => node.syntax(),
+            // Python 3.10+ Features
+            PyAst::MatchExpr(node) => node.syntax(),
+            // Python 3.14+ Features
+            PyAst::NullCoalescingExpr(node) => node.syntax(),
+            PyAst::AsyncComprehensionExpr(node) => node.syntax(),
+
+            // Pattern types (Python 3.10+)
+            PyAst::WildcardPattern(node) => node.syntax(),
+            PyAst::ValuePattern(node) => node.syntax(),
+            PyAst::BindPattern(node) => node.syntax(),
+            PyAst::ClassPattern(node) => node.syntax(),
+            PyAst::SequencePattern(node) => node.syntax(),
+            PyAst::MappingPattern(node) => node.syntax(),
+            PyAst::OrPattern(node) => node.syntax(),
+            PyAst::GuardClause(node) => node.syntax(),
+            PyAst::EnhancedPattern(node) => node.syntax(),
         }
     }
 
@@ -204,6 +266,17 @@ impl PyAstNode for PyAst {
             | PySyntaxKind::MatchStmt
             | PySyntaxKind::ElseClause
             | PySyntaxKind::ElifClause
+            // Python 3.11+ Exception Groups
+            | PySyntaxKind::TryStarStmt
+            | PySyntaxKind::ExceptStarClause
+            // Python 3.12+ Type Parameters and Type Statements
+            | PySyntaxKind::TypeStatement
+            | PySyntaxKind::TypeAliasStmt
+            | PySyntaxKind::GenericFuncDef
+            | PySyntaxKind::GenericClassDef
+            // Python 3.14+ Experimental Features
+            | PySyntaxKind::Decorated
+            | PySyntaxKind::AsyncCompStmt
             // Expression types
             | PySyntaxKind::NameExpr
             | PySyntaxKind::LiteralExpr
@@ -233,6 +306,24 @@ impl PyAstNode for PyAst {
             | PySyntaxKind::DictCompExpr
             | PySyntaxKind::SetCompExpr
             | PySyntaxKind::GeneratorExpr
+            // Python 3.9+ Features
+            | PySyntaxKind::DictMergeExpr
+            | PySyntaxKind::UnionType
+            // Python 3.10+ Features
+            | PySyntaxKind::MatchExpr
+            // Python 3.14+ Features
+            | PySyntaxKind::NullCoalescing
+            | PySyntaxKind::AsyncComprehension
+            // Pattern types (Python 3.10+)
+            | PySyntaxKind::WildcardPattern
+            | PySyntaxKind::ValuePattern
+            | PySyntaxKind::BindPattern
+            | PySyntaxKind::ClassPattern
+            | PySyntaxKind::SequencePattern
+            | PySyntaxKind::MappingPattern
+            | PySyntaxKind::OrPattern
+            | PySyntaxKind::GuardClause
+            | PySyntaxKind::EnhancedPattern
         )
     }
 
