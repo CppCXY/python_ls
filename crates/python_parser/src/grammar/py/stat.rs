@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::{
     grammar::{ParseFailReason, ParseResult, py::is_statement_start_token},
     kind::{PySyntaxKind, PyTokenKind},
-    parser::{MarkerEventContainer, PyParser},
+    parser::{CompleteMarker, MarkerEventContainer, PyParser},
     parser_error::PyParseError,
 };
 
@@ -1108,10 +1108,8 @@ fn parse_async_stmt(p: &mut PyParser) -> ParseResult {
 fn parse_newline(p: &mut PyParser) -> ParseResult {
     // Simply consume the newline token without creating a syntax node
     p.bump(); // consume newline
-    
-    // Instead of creating a syntax node, we just consume the token
-    // and return as if nothing happened
-    Err(ParseFailReason::UnexpectedToken)
+
+    Ok(CompleteMarker::empty())
 }
 
 /// Consume optional newline at the end of simple statements

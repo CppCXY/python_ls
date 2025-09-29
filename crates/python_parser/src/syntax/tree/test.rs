@@ -24,7 +24,7 @@ mod test {
 def foo(x: int) -> int:
     return x + 1
 "#;
-        
+
         let expected = r#"
 Syntax(Module)@0..42
   Syntax(Suite)@0..42
@@ -66,7 +66,7 @@ Syntax(Module)@0..42
               Token(TkInt)@40..41 "1"
         Token(TkNewline)@41..42 "\n"
         "#;
-        
+
         assert_ast!(code, expected);
     }
 }

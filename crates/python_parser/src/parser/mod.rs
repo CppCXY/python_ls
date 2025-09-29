@@ -2,6 +2,7 @@
 mod marker;
 mod parser_config;
 mod py_parser;
+mod test;
 
 // pub use py_doc_parser::LuaDocParser;
 #[allow(unused)]
