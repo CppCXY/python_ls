@@ -1,11 +1,11 @@
 mod lexer_config;
-mod py_doc_lexer;
+mod fstring_lexer;
 mod py_lexer;
 mod test;
 mod token_data;
 
 pub use lexer_config::LexerConfig;
-// pub use py_doc_lexer::{LuaDocLexer, LuaDocLexerState};
+pub use fstring_lexer::{FStringLexer, FStringToken};
 pub use py_lexer::PyLexer;
 pub use token_data::PyTokenData;
 

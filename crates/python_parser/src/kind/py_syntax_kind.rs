@@ -52,6 +52,7 @@ pub enum PySyntaxKind {
     // Expressions
     NameExpr,    // identifier/name
     LiteralExpr, // literal values (int, float, string, etc.)
+    FStringExpr, // f-string expression with embedded expressions
     ParenExpr,   // parenthesized expression
     TupleExpr,   // tuple expression
     ListExpr,    // list expression
@@ -148,6 +149,11 @@ pub enum PySyntaxKind {
     Decorators, // list of decorators
     Docstring,  // docstring (first string literal in module/class/function)
 
+    // F-string components
+    FStringPart,       // text part of f-string
+    FStringExpression, // {expression} part of f-string
+    FStringFormat,     // format specification
+    
     // Comments and whitespace
     Comment, // comment
     Newline, // newline

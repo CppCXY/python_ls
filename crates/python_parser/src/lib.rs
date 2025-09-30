@@ -7,7 +7,7 @@ mod syntax;
 mod text;
 
 pub use kind::*;
-pub use lexer::{LexerConfig, LexerState, PyLexer, PyTokenData};
+pub use lexer::{FStringLexer, FStringToken, LexerConfig, LexerState, PyLexer, PyTokenData};
 pub use parser::{ParserConfig, PyParser};
 pub use parser_error::{PyParseError, PyParseErrorKind};
 pub use syntax::*;

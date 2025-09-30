@@ -1,5 +1,6 @@
 mod expr;
 mod stat;
+mod test;
 use stat::parse_stats;
 
 use crate::{
