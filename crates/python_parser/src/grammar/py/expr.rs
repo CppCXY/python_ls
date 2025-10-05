@@ -7,6 +7,15 @@ use crate::{
 
 use super::if_token_bump;
 
+pub fn parse_fstring_inner_expr(p: &mut PyParser) {
+    p.init();
+
+    let _ = parse_single_expr(p);
+    while p.current_token() != PyTokenKind::TkEof {
+        p.bump();
+    }
+}
+
 pub fn parse_expr(p: &mut PyParser) -> ParseResult {
     parse_tuple_or_expr(p)
 }

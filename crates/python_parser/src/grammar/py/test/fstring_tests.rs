@@ -3,7 +3,7 @@ mod fstring_expr_tests {
     use crate::parser::{ParserConfig, PyParser};
 
     fn parse_python_code(code: &str) -> bool {
-        let tree = PyParser::parse(code, ParserConfig::default());
+        let tree = PyParser::parse(code, ParserConfig::default(), None);
 
         !tree.has_syntax_errors()
     }

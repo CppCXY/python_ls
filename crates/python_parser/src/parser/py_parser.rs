@@ -1,9 +1,11 @@
+use rowan::NodeCache;
+
 use super::{
     marker::{MarkEvent, MarkerEventContainer},
     parser_config::ParserConfig,
 };
 use crate::{
-    grammar::parse_module_suite,
+    grammar::{parse_fstring_inner_expr, parse_module_suite},
     kind::PyTokenKind,
     lexer::{PyLexer, PyTokenData},
     parser_error::PyParseError,
@@ -20,7 +22,7 @@ pub struct PyParser<'a> {
     token_index: usize,
     current_token: PyTokenKind,
     mark_level: usize,
-    pub parse_config: ParserConfig<'a>,
+    pub parse_config: ParserConfig,
     pub(crate) errors: &'a mut Vec<PyParseError>,
     paren_level: usize,   // ()
     bracket_level: usize, // []
@@ -47,7 +49,11 @@ impl MarkerEventContainer for PyParser<'_> {
 
 impl<'a> PyParser<'a> {
     #[allow(unused)]
-    pub fn parse(text: &'a str, config: ParserConfig) -> PySyntaxTree {
+    pub fn parse(
+        text: &'a str,
+        config: ParserConfig,
+        node_cache: Option<&'a mut NodeCache>,
+    ) -> PySyntaxTree {
         let mut errors: Vec<PyParseError> = Vec::new();
         let tokens = {
             let mut lexer =
@@ -72,15 +78,43 @@ impl<'a> PyParser<'a> {
         parse_module_suite(&mut parser);
         let errors = parser.get_errors();
         let root = {
-            let mut builder = PyTreeBuilder::new(
-                parser.origin_text(),
-                parser.events,
-                parser.parse_config.node_cache(),
-            );
+            let mut builder = PyTreeBuilder::new(parser.origin_text(), parser.events, node_cache);
             builder.build();
             builder.finish()
         };
         PySyntaxTree::new(root, errors)
+    }
+
+    pub fn parse_sub_expression(
+        text: &'a str,
+        range: SourceRange,
+        config: ParserConfig,
+        errors: &'a mut Vec<PyParseError>,
+    ) {
+        let tokens = {
+            let mut lexer = PyLexer::new(
+                Reader::new_with_range(text, range),
+                config.lexer_config(),
+                Some(errors),
+            );
+            lexer.tokenize()
+        };
+
+        let mut parser = PyParser {
+            text,
+            events: Vec::new(),
+            tokens,
+            token_index: 0,
+            current_token: PyTokenKind::None,
+            parse_config: config,
+            mark_level: 0,
+            errors,
+            paren_level: 0,
+            bracket_level: 0,
+            brace_level: 0,
+        };
+
+        parse_fstring_inner_expr(&mut parser);
     }
 
     pub fn init(&mut self) {
@@ -394,6 +428,18 @@ impl<'a> PyParser<'a> {
             self.parse_config.level.support_type_statements(),
             "Python 3.12+",
         );
+    }
+
+    pub fn source_text(&self) -> &'a str {
+        self.text
+    }
+
+    pub fn parse_config(&self) -> ParserConfig {
+        self.parse_config.clone()
+    }
+
+    pub fn eat_token(&mut self, kind: PyTokenKind, range: SourceRange) {
+        self.events.push(MarkEvent::EatToken { kind, range });
     }
 }
 

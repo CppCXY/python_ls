@@ -5,14 +5,14 @@ mod test {
     #[allow(unused)]
     fn print_ast_code(code: &str) {
         let config = ParserConfig::default();
-        let tree = PyParser::parse(code, config);
+        let tree = PyParser::parse(code, config, None);
         println!("{:#?}", tree.get_red_root());
     }
 
     macro_rules! assert_ast {
         ($code:expr, $expected:expr) => {
             let config = ParserConfig::default();
-            let tree = PyParser::parse($code, config);
+            let tree = PyParser::parse($code, config, None);
             let actual = format!("{:#?}", tree.get_red_root());
             assert_eq!(actual.trim(), $expected.trim());
         };

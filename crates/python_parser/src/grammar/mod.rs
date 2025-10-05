@@ -1,8 +1,8 @@
-mod py;
 mod fstring;
+mod py;
 
 use crate::parser::CompleteMarker;
-pub use py::parse_module_suite;
+pub use py::{parse_fstring_inner_expr, parse_module_suite};
 
 type ParseResult = Result<CompleteMarker, ParseFailReason>;
 

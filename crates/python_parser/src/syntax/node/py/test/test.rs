@@ -5,7 +5,7 @@ mod test {
     // Helper function to print AST for debugging
     fn print_ast_code(text: &str) {
         use crate::parser::PyParser;
-        let tree = PyParser::parse(text, ParserConfig::default());
+        let tree = PyParser::parse(text, ParserConfig::default(), None);
         let root = tree.get_red_root();
         println!("{:#?}", root);
     }
@@ -13,7 +13,7 @@ mod test {
     // Helper function to check if code parses without errors
     fn assert_parses_successfully(code: &str) {
         use crate::parser::PyParser;
-        let tree = PyParser::parse(code, ParserConfig::default());
+        let tree = PyParser::parse(code, ParserConfig::default(), None);
         let errors = tree.get_errors();
         if !errors.is_empty() {
             println!("Parse errors for code: {}", code);

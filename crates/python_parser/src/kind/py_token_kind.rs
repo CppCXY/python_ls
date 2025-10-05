@@ -130,6 +130,13 @@ pub enum PyTokenKind {
     TkEof,        // end of file
     TkUnknown,    // unknown token
     TkErrorToken, // error token
+
+    // F String specific tokens
+    TkFStringText,
+    TkFStringExprStart,  // start of embedded expression ({)
+    TkFStringExprEnd,    // end of embedded expression (})
+    TkFStringFormatSpec, // format specifier (:... in {expr:...})
+    TkFStringConversion, // conversion specifier (!s, !r, !a in
 }
 
 impl fmt::Display for PyTokenKind {

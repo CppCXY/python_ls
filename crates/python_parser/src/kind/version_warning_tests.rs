@@ -17,8 +17,8 @@ mod version_warning_tests {
             patch: 0,
         });
 
-        let config = ParserConfig::new(language_level, None);
-        let tree = PyParser::parse(code, config);
+        let config = ParserConfig::new(language_level);
+        let tree = PyParser::parse(code, config, None);
         let errors = tree.get_errors().to_vec();
         (tree, errors)
     }

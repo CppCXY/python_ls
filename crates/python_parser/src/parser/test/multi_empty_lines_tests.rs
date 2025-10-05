@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod multi_empty_lines_tests {
-    use crate::{parser::test::print_ast_code, ParserConfig, PyParser};
+    use crate::{ParserConfig, PyParser, parser::test::print_ast_code};
 
     fn check_ast_code(code: &str) {
         let config = ParserConfig::default();
-        let tree = PyParser::parse(code, config);
+        let tree = PyParser::parse(code, config, None);
 
         // Check for errors
         let errors = tree.get_errors();

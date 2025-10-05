@@ -1,35 +1,36 @@
-use crate::{kind::PyTokenKind, parser_error::PyParseError, text::Reader};
-
-use super::{is_name_start, lex_name, lex_number, lex_operator};
+use crate::{SourceRange, parser_error::PyParseError, text::Reader};
 
 /// F-string lexer for parsing f-string content with embedded expressions
-#[allow(unused)]
 pub struct FStringLexer<'a> {
     reader: Reader<'a>,
-    quote_char: char,
-    is_triple: bool,
     brace_depth: usize,
     errors: Vec<PyParseError>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FStringToken {
-    Text(String),         // Plain text part
-    ExprStart,            // {
-    ExprEnd,              // }
-    FormatSpec(String),   // :format_spec
-    ConversionSpec(char), // !r, !s, !a
-    Token(PyTokenKind),   // Python token inside expression
+    Text(SourceRange),           // Plain text part
+    ExprStart(SourceRange),      // {
+    Expr(SourceRange),           // Expression content (not parsed)
+    ExprEnd(SourceRange),        // }
+    FormatSpec(SourceRange),     // :format_spec
+    ConversionSpec(SourceRange), // !r, !s, !a
 }
 
 impl<'a> FStringLexer<'a> {
-    pub fn new(text: &'a str, quote_char: char, is_triple: bool) -> Self {
-        Self {
-            reader: Reader::new(text),
-            quote_char,
-            is_triple,
-            brace_depth: 0,
-            errors: Vec::new(),
+    pub fn new(text: &'a str, text_range: Option<SourceRange>) -> Self {
+        if let Some(range) = text_range {
+            Self {
+                reader: Reader::new_with_range(text, range),
+                brace_depth: 0,
+                errors: Vec::new(),
+            }
+        } else {
+            Self {
+                reader: Reader::new(text),
+                brace_depth: 0,
+                errors: Vec::new(),
+            }
         }
     }
 
@@ -62,12 +63,14 @@ impl<'a> FStringLexer<'a> {
                     // Escaped brace {{ -> {
                     self.reader.bump(); // consume first {
                     self.reader.bump(); // consume second {
-                    Some(FStringToken::Text("{".to_string()))
+                    let range = self.reader.current_range();
+                    Some(FStringToken::Text(range))
                 } else {
                     // Start of expression
                     self.reader.bump();
+                    let range = self.reader.current_range();
                     self.brace_depth += 1;
-                    Some(FStringToken::ExprStart)
+                    Some(FStringToken::ExprStart(range))
                 }
             }
             '}' => {
@@ -75,25 +78,28 @@ impl<'a> FStringLexer<'a> {
                     // Escaped brace }} -> }
                     self.reader.bump(); // consume first }
                     self.reader.bump(); // consume second }
-                    Some(FStringToken::Text("}".to_string()))
+                    let range = self.reader.current_range();
+                    Some(FStringToken::Text(range))
                 } else if self.brace_depth > 0 {
                     // End of expression
                     self.reader.bump();
+                    let range = self.reader.current_range();
                     self.brace_depth -= 1;
-                    Some(FStringToken::ExprEnd)
+                    Some(FStringToken::ExprEnd(range))
                 } else {
                     // Literal } outside expression
                     self.reader.bump();
-                    Some(FStringToken::Text("}".to_string()))
+                    let range = self.reader.current_range();
+                    Some(FStringToken::Text(range))
                 }
             }
             '!' if self.brace_depth > 0 => {
                 // Conversion specifier (!r, !s, !a)
                 self.reader.bump(); // consume !
                 if matches!(self.reader.current_char(), 'r' | 's' | 'a') {
-                    let conv = self.reader.current_char();
                     self.reader.bump();
-                    Some(FStringToken::ConversionSpec(conv))
+                    let range = self.reader.current_range();
+                    Some(FStringToken::ConversionSpec(range))
                 } else {
                     // Invalid conversion specifier
                     self.push_error("Invalid conversion specifier");
@@ -103,29 +109,26 @@ impl<'a> FStringLexer<'a> {
             ':' if self.brace_depth > 0 => {
                 // Format specification
                 self.reader.bump(); // consume :
-                let format_spec = self.lex_format_spec();
-                Some(FStringToken::FormatSpec(format_spec))
+                self.lex_format_spec();
+                let range = self.reader.current_range();
+                Some(FStringToken::FormatSpec(range))
             }
-            // Inside expression, lex Python tokens
+            // Inside expression, collect expression content
             _ if self.brace_depth > 0 => {
-                // Skip whitespace
-                if matches!(self.reader.current_char(), ' ' | '\t') {
-                    self.reader.eat_while(|ch| ch == ' ' || ch == '\t');
-                    return self.lex_next();
-                }
-
-                let token_kind = self.lex_expression_token();
-                if token_kind != PyTokenKind::TkUnknown {
-                    Some(FStringToken::Token(token_kind))
+                self.lex_expr();
+                let range = self.reader.current_range();
+                if !range.is_empty() {
+                    Some(FStringToken::Expr(range))
                 } else {
                     None
                 }
             }
             // Outside expression, lex text
             _ => {
-                let text = self.lex_text();
-                if !text.is_empty() {
-                    Some(FStringToken::Text(text))
+                self.lex_text();
+                let range = self.reader.current_range();
+                if !range.is_empty() {
+                    Some(FStringToken::Text(range))
                 } else {
                     None
                 }
@@ -133,30 +136,39 @@ impl<'a> FStringLexer<'a> {
         }
     }
 
-    /// Lex a Python token inside the expression part of f-string
-    fn lex_expression_token(&mut self) -> PyTokenKind {
-        let ch = self.reader.current_char();
+    fn lex_expr(&mut self) {
+        // Collect expression content until we hit !, :, or }
+        while !self.reader.is_eof() {
+            let ch = self.reader.current_char();
 
-        match ch {
-            // Numbers
-            '0'..='9' => lex_number(&mut self.reader),
-            // Names/identifiers
-            _ if is_name_start(ch) => lex_name(&mut self.reader),
-            // Operators and punctuation (but not { } which are handled separately)
-            '(' | ')' | '[' | ']' | ',' | '.' | '+' | '-' | '*' | '/' | '%' | '&' | '|' | '^'
-            | '~' | '<' | '>' | '=' | '@' | ';' => lex_operator(&mut self.reader),
-            // End of input or unknown
-            _ if self.reader.is_eof() => PyTokenKind::TkEof,
-            _ => {
+            // Stop at conversion/format specs or end of expression
+            if matches!(ch, '!' | ':' | '}') {
+                break;
+            }
+
+            // Handle nested braces in expressions
+            if ch == '{' {
                 self.reader.bump();
-                PyTokenKind::TkUnknown
+                self.brace_depth += 1;
+                // Recursively handle nested content
+                while self.brace_depth > 1 && !self.reader.is_eof() {
+                    if self.reader.current_char() == '{' {
+                        self.reader.bump();
+                        self.brace_depth += 1;
+                    } else if self.reader.current_char() == '}' {
+                        self.reader.bump();
+                        self.brace_depth -= 1;
+                    } else {
+                        self.reader.bump();
+                    }
+                }
+            } else {
+                self.reader.bump();
             }
         }
     }
 
-    fn lex_text(&mut self) -> String {
-        let mut text = String::new();
-
+    fn lex_text(&mut self) {
         while !self.reader.is_eof() {
             let ch = self.reader.current_char();
 
@@ -174,33 +186,15 @@ impl<'a> FStringLexer<'a> {
             if ch == '\\' && !self.reader.is_eof() {
                 self.reader.bump(); // consume backslash
                 if !self.reader.is_eof() {
-                    let escaped = self.reader.current_char();
-                    match escaped {
-                        'n' => text.push('\n'),
-                        't' => text.push('\t'),
-                        'r' => text.push('\r'),
-                        '\\' => text.push('\\'),
-                        '\'' => text.push('\''),
-                        '"' => text.push('"'),
-                        _ => {
-                            text.push('\\');
-                            text.push(escaped);
-                        }
-                    }
-                    self.reader.bump();
+                    self.reader.bump(); // consume escaped character
                 }
             } else {
-                text.push(ch);
                 self.reader.bump();
             }
         }
-
-        text
     }
 
-    fn lex_format_spec(&mut self) -> String {
-        let mut spec = String::new();
-
+    fn lex_format_spec(&mut self) {
         while !self.reader.is_eof() {
             let ch = self.reader.current_char();
 
@@ -209,11 +203,8 @@ impl<'a> FStringLexer<'a> {
                 break;
             }
 
-            spec.push(ch);
             self.reader.bump();
         }
-
-        spec
     }
 
     fn push_error(&mut self, message: &str) {
@@ -228,102 +219,93 @@ mod tests {
 
     #[test]
     fn test_simple_fstring() {
-        let mut lexer = FStringLexer::new("hello {name}", '"', false);
+        let mut lexer = FStringLexer::new("hello {name}", None);
         let tokens = lexer.tokenize();
 
         assert_eq!(tokens.len(), 4);
-        assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "hello "));
-        assert!(matches!(tokens[1], FStringToken::ExprStart));
-        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName)));
-        assert!(matches!(tokens[3], FStringToken::ExprEnd));
+        assert!(matches!(tokens[0], FStringToken::Text(_)));
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_)));
+        assert!(matches!(tokens[2], FStringToken::Expr(_)));
+        assert!(matches!(tokens[3], FStringToken::ExprEnd(_)));
     }
 
     #[test]
     fn test_fstring_with_format() {
-        let mut lexer = FStringLexer::new("value: {x:.2f}", '"', false);
+        let mut lexer = FStringLexer::new("value: {x:.2f}", None);
         let tokens = lexer.tokenize();
 
         assert_eq!(tokens.len(), 5);
-        assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "value: "));
-        assert!(matches!(tokens[1], FStringToken::ExprStart));
-        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName)));
-        assert!(matches!(tokens[3], FStringToken::FormatSpec(ref s) if s == ".2f"));
-        assert!(matches!(tokens[4], FStringToken::ExprEnd));
+        assert!(matches!(tokens[0], FStringToken::Text(_)));
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_)));
+        assert!(matches!(tokens[2], FStringToken::Expr(_)));
+        assert!(matches!(tokens[3], FStringToken::FormatSpec(_)));
+        assert!(matches!(tokens[4], FStringToken::ExprEnd(_)));
     }
 
     #[test]
     fn test_fstring_with_conversion() {
-        let mut lexer = FStringLexer::new("repr: {obj!r}", '"', false);
+        let mut lexer = FStringLexer::new("repr: {obj!r}", None);
         let tokens = lexer.tokenize();
 
         assert_eq!(tokens.len(), 5);
-        assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "repr: "));
-        assert!(matches!(tokens[1], FStringToken::ExprStart));
-        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName)));
-        assert!(matches!(tokens[3], FStringToken::ConversionSpec('r')));
-        assert!(matches!(tokens[4], FStringToken::ExprEnd));
+        assert!(matches!(tokens[0], FStringToken::Text(_)));
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_)));
+        assert!(matches!(tokens[2], FStringToken::Expr(_)));
+        assert!(matches!(tokens[3], FStringToken::ConversionSpec(_)));
+        assert!(matches!(tokens[4], FStringToken::ExprEnd(_)));
     }
 
     #[test]
     fn test_escaped_braces() {
-        let mut lexer = FStringLexer::new("{{escaped}} braces", '"', false);
+        let mut lexer = FStringLexer::new("{{escaped}} braces", None);
         let tokens = lexer.tokenize();
 
-        // {{ -> "{" (text)
-        // "escaped}}" -> "escaped" (text) followed by "}}" which is parsed as "}}" (text)
-        // " braces" -> " braces" (text)
-        // So we expect: "{", "escaped", "}", "}", " braces"
+        // {{ -> Text
+        // "escaped}}" -> Text
+        // Text (}) + Text (})
+        // " braces" -> Text
         assert_eq!(tokens.len(), 5);
-        assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "{"));
-        assert!(matches!(tokens[1], FStringToken::Text(ref s) if s == "escaped"));
-        assert!(matches!(tokens[2], FStringToken::Text(ref s) if s == "}"));
-        assert!(matches!(tokens[3], FStringToken::Text(ref s) if s == "}"));
-        assert!(matches!(tokens[4], FStringToken::Text(ref s) if s == " braces"));
+        assert!(matches!(tokens[0], FStringToken::Text(_)));
+        assert!(matches!(tokens[1], FStringToken::Text(_)));
+        assert!(matches!(tokens[2], FStringToken::Text(_)));
+        assert!(matches!(tokens[3], FStringToken::Text(_)));
+        assert!(matches!(tokens[4], FStringToken::Text(_)));
     }
 
     #[test]
     fn test_fstring_with_expression() {
-        let mut lexer = FStringLexer::new("result: {x + y * 2}", '"', false);
+        let mut lexer = FStringLexer::new("result: {x + y * 2}", None);
         let tokens = lexer.tokenize();
 
-        // Should tokenize: "result: " { x + y * 2 }
-        assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "result: "));
-        assert!(matches!(tokens[1], FStringToken::ExprStart));
-        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName))); // x
-        assert!(matches!(tokens[3], FStringToken::Token(PyTokenKind::TkPlus))); // +
-        assert!(matches!(tokens[4], FStringToken::Token(PyTokenKind::TkName))); // y
-        assert!(matches!(tokens[5], FStringToken::Token(PyTokenKind::TkMul))); // *
-        assert!(matches!(tokens[6], FStringToken::Token(PyTokenKind::TkInt))); // 2
-        assert!(matches!(tokens[7], FStringToken::ExprEnd));
+        // Should tokenize: "result: " { "x + y * 2" }
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0], FStringToken::Text(_))); // "result: "
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_))); // {
+        assert!(matches!(tokens[2], FStringToken::Expr(_))); // x + y * 2
+        assert!(matches!(tokens[3], FStringToken::ExprEnd(_))); // }
     }
 
     #[test]
     fn test_fstring_with_nested_brackets() {
-        let mut lexer = FStringLexer::new("data: {arr[0]}", '"', false);
+        let mut lexer = FStringLexer::new("data: {arr[0]}", None);
         let tokens = lexer.tokenize();
 
-        assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "data: "));
-        assert!(matches!(tokens[1], FStringToken::ExprStart));
-        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName))); // arr
-        assert!(matches!(tokens[3], FStringToken::Token(PyTokenKind::TkLeftBracket))); // [
-        assert!(matches!(tokens[4], FStringToken::Token(PyTokenKind::TkInt))); // 0
-        assert!(matches!(tokens[5], FStringToken::Token(PyTokenKind::TkRightBracket))); // ]
-        assert!(matches!(tokens[6], FStringToken::ExprEnd));
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0], FStringToken::Text(_)));
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_)));
+        assert!(matches!(tokens[2], FStringToken::Expr(_))); // arr[0]
+        assert!(matches!(tokens[3], FStringToken::ExprEnd(_)));
     }
 
     #[test]
     fn test_fstring_with_function_call() {
-        let mut lexer = FStringLexer::new("func: {foo(a, b)}", '"', false);
+        let mut lexer = FStringLexer::new("func: {foo(a, b)}", None);
         let tokens = lexer.tokenize();
 
-        assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "func: "));
-        assert!(matches!(tokens[1], FStringToken::ExprStart));
-        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName))); // foo
-        assert!(matches!(tokens[3], FStringToken::Token(PyTokenKind::TkLeftParen))); // (
-        assert!(matches!(tokens[4], FStringToken::Token(PyTokenKind::TkName))); // a
-        assert!(matches!(tokens[5], FStringToken::Token(PyTokenKind::TkComma))); // ,
-        assert!(matches!(tokens[6], FStringToken::Token(PyTokenKind::TkName))); // b
-        assert!(matches!(tokens[7], FStringToken::Token(PyTokenKind::TkRightParen))); // )
-        assert!(matches!(tokens[8], FStringToken::ExprEnd));
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0], FStringToken::Text(_)));
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_)));
+        assert!(matches!(tokens[2], FStringToken::Expr(_))); // foo(a, b)
+        assert!(matches!(tokens[3], FStringToken::ExprEnd(_)));
     }
 }

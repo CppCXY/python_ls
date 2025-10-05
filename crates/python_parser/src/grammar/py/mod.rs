@@ -8,6 +8,7 @@ use crate::{
     parser::{MarkerEventContainer, PyParser},
     parser_error::PyParseError,
 };
+pub use expr::parse_fstring_inner_expr;
 
 pub fn parse_module_suite(p: &mut PyParser) {
     let m = p.mark(PySyntaxKind::Suite);
