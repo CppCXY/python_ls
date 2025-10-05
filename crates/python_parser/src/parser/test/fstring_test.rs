@@ -10,4 +10,12 @@ greeting = f"Hello {name}!"
 "#;
         print_ast_code(code);
     }
+
+//     #[test]
+//     fn test_fstring_with_expression() {
+//         let code = r#"
+// greeting = f"Hello {name}!"
+// "#;
+//         print_ast_code(code);
+//     }
 }

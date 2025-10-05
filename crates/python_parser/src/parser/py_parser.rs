@@ -90,7 +90,7 @@ impl<'a> PyParser<'a> {
         range: SourceRange,
         config: ParserConfig,
         errors: &'a mut Vec<PyParseError>,
-    ) {
+    ) -> Vec<MarkEvent>{
         let tokens = {
             let mut lexer = PyLexer::new(
                 Reader::new_with_range(text, range),
@@ -115,6 +115,8 @@ impl<'a> PyParser<'a> {
         };
 
         parse_fstring_inner_expr(&mut parser);
+
+        parser.events
     }
 
     pub fn init(&mut self) {
@@ -151,6 +153,25 @@ impl<'a> PyParser<'a> {
         }
 
         self.tokens[self.token_index].range
+    }
+
+    pub fn skip_bump(&mut self) {
+        let start_trivia = self.token_index + 1;
+        let mut next_index = start_trivia;
+        self.skip_trivia(&mut next_index);
+        self.parse_trivia_tokens(start_trivia, next_index);
+        self.token_index = next_index;
+
+        if self.token_index >= self.tokens.len() {
+            self.current_token = PyTokenKind::TkEof;
+            return;
+        }
+
+        self.current_token = self.tokens[self.token_index].kind;
+    }
+
+    pub fn add_events(&mut self, mut events: Vec<MarkEvent>) {
+        self.events.append(&mut events);
     }
 
     pub fn previous_token_range(&self) -> SourceRange {
