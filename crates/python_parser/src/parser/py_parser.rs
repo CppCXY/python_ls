@@ -22,7 +22,6 @@ pub struct PyParser<'a> {
     mark_level: usize,
     pub parse_config: ParserConfig<'a>,
     pub(crate) errors: &'a mut Vec<PyParseError>,
-    // 括号嵌套级别跟踪
     paren_level: usize,   // ()
     bracket_level: usize, // []
     brace_level: usize,   // {}

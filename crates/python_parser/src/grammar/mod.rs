@@ -1,4 +1,5 @@
 mod py;
+mod fstring;
 
 use crate::parser::CompleteMarker;
 pub use py::parse_module_suite;

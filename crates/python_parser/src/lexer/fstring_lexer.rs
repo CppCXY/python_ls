@@ -1,4 +1,6 @@
-use crate::{parser_error::PyParseError, text::Reader};
+use crate::{kind::PyTokenKind, parser_error::PyParseError, text::Reader};
+
+use super::{is_name_start, lex_name, lex_number, lex_operator};
 
 /// F-string lexer for parsing f-string content with embedded expressions
 #[allow(unused)]
@@ -17,6 +19,7 @@ pub enum FStringToken {
     ExprEnd,              // }
     FormatSpec(String),   // :format_spec
     ConversionSpec(char), // !r, !s, !a
+    Token(PyTokenKind),   // Python token inside expression
 }
 
 impl<'a> FStringLexer<'a> {
@@ -103,14 +106,50 @@ impl<'a> FStringLexer<'a> {
                 let format_spec = self.lex_format_spec();
                 Some(FStringToken::FormatSpec(format_spec))
             }
+            // Inside expression, lex Python tokens
+            _ if self.brace_depth > 0 => {
+                // Skip whitespace
+                if matches!(self.reader.current_char(), ' ' | '\t') {
+                    self.reader.eat_while(|ch| ch == ' ' || ch == '\t');
+                    return self.lex_next();
+                }
+
+                let token_kind = self.lex_expression_token();
+                if token_kind != PyTokenKind::TkUnknown {
+                    Some(FStringToken::Token(token_kind))
+                } else {
+                    None
+                }
+            }
+            // Outside expression, lex text
             _ => {
-                // Regular text or expression content
                 let text = self.lex_text();
                 if !text.is_empty() {
                     Some(FStringToken::Text(text))
                 } else {
                     None
                 }
+            }
+        }
+    }
+
+    /// Lex a Python token inside the expression part of f-string
+    fn lex_expression_token(&mut self) -> PyTokenKind {
+        let ch = self.reader.current_char();
+
+        match ch {
+            // Numbers
+            '0'..='9' => lex_number(&mut self.reader),
+            // Names/identifiers
+            _ if is_name_start(ch) => lex_name(&mut self.reader),
+            // Operators and punctuation (but not { } which are handled separately)
+            '(' | ')' | '[' | ']' | ',' | '.' | '+' | '-' | '*' | '/' | '%' | '&' | '|' | '^'
+            | '~' | '<' | '>' | '=' | '@' | ';' => lex_operator(&mut self.reader),
+            // End of input or unknown
+            _ if self.reader.is_eof() => PyTokenKind::TkEof,
+            _ => {
+                self.reader.bump();
+                PyTokenKind::TkUnknown
             }
         }
     }
@@ -195,7 +234,7 @@ mod tests {
         assert_eq!(tokens.len(), 4);
         assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "hello "));
         assert!(matches!(tokens[1], FStringToken::ExprStart));
-        assert!(matches!(tokens[2], FStringToken::Text(ref s) if s == "name"));
+        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName)));
         assert!(matches!(tokens[3], FStringToken::ExprEnd));
     }
 
@@ -207,7 +246,7 @@ mod tests {
         assert_eq!(tokens.len(), 5);
         assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "value: "));
         assert!(matches!(tokens[1], FStringToken::ExprStart));
-        assert!(matches!(tokens[2], FStringToken::Text(ref s) if s == "x"));
+        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName)));
         assert!(matches!(tokens[3], FStringToken::FormatSpec(ref s) if s == ".2f"));
         assert!(matches!(tokens[4], FStringToken::ExprEnd));
     }
@@ -220,7 +259,7 @@ mod tests {
         assert_eq!(tokens.len(), 5);
         assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "repr: "));
         assert!(matches!(tokens[1], FStringToken::ExprStart));
-        assert!(matches!(tokens[2], FStringToken::Text(ref s) if s == "obj"));
+        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName)));
         assert!(matches!(tokens[3], FStringToken::ConversionSpec('r')));
         assert!(matches!(tokens[4], FStringToken::ExprEnd));
     }
@@ -230,11 +269,61 @@ mod tests {
         let mut lexer = FStringLexer::new("{{escaped}} braces", '"', false);
         let tokens = lexer.tokenize();
 
+        // {{ -> "{" (text)
+        // "escaped}}" -> "escaped" (text) followed by "}}" which is parsed as "}}" (text)
+        // " braces" -> " braces" (text)
+        // So we expect: "{", "escaped", "}", "}", " braces"
         assert_eq!(tokens.len(), 5);
         assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "{"));
         assert!(matches!(tokens[1], FStringToken::Text(ref s) if s == "escaped"));
         assert!(matches!(tokens[2], FStringToken::Text(ref s) if s == "}"));
         assert!(matches!(tokens[3], FStringToken::Text(ref s) if s == "}"));
         assert!(matches!(tokens[4], FStringToken::Text(ref s) if s == " braces"));
+    }
+
+    #[test]
+    fn test_fstring_with_expression() {
+        let mut lexer = FStringLexer::new("result: {x + y * 2}", '"', false);
+        let tokens = lexer.tokenize();
+
+        // Should tokenize: "result: " { x + y * 2 }
+        assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "result: "));
+        assert!(matches!(tokens[1], FStringToken::ExprStart));
+        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName))); // x
+        assert!(matches!(tokens[3], FStringToken::Token(PyTokenKind::TkPlus))); // +
+        assert!(matches!(tokens[4], FStringToken::Token(PyTokenKind::TkName))); // y
+        assert!(matches!(tokens[5], FStringToken::Token(PyTokenKind::TkMul))); // *
+        assert!(matches!(tokens[6], FStringToken::Token(PyTokenKind::TkInt))); // 2
+        assert!(matches!(tokens[7], FStringToken::ExprEnd));
+    }
+
+    #[test]
+    fn test_fstring_with_nested_brackets() {
+        let mut lexer = FStringLexer::new("data: {arr[0]}", '"', false);
+        let tokens = lexer.tokenize();
+
+        assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "data: "));
+        assert!(matches!(tokens[1], FStringToken::ExprStart));
+        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName))); // arr
+        assert!(matches!(tokens[3], FStringToken::Token(PyTokenKind::TkLeftBracket))); // [
+        assert!(matches!(tokens[4], FStringToken::Token(PyTokenKind::TkInt))); // 0
+        assert!(matches!(tokens[5], FStringToken::Token(PyTokenKind::TkRightBracket))); // ]
+        assert!(matches!(tokens[6], FStringToken::ExprEnd));
+    }
+
+    #[test]
+    fn test_fstring_with_function_call() {
+        let mut lexer = FStringLexer::new("func: {foo(a, b)}", '"', false);
+        let tokens = lexer.tokenize();
+
+        assert!(matches!(tokens[0], FStringToken::Text(ref s) if s == "func: "));
+        assert!(matches!(tokens[1], FStringToken::ExprStart));
+        assert!(matches!(tokens[2], FStringToken::Token(PyTokenKind::TkName))); // foo
+        assert!(matches!(tokens[3], FStringToken::Token(PyTokenKind::TkLeftParen))); // (
+        assert!(matches!(tokens[4], FStringToken::Token(PyTokenKind::TkName))); // a
+        assert!(matches!(tokens[5], FStringToken::Token(PyTokenKind::TkComma))); // ,
+        assert!(matches!(tokens[6], FStringToken::Token(PyTokenKind::TkName))); // b
+        assert!(matches!(tokens[7], FStringToken::Token(PyTokenKind::TkRightParen))); // )
+        assert!(matches!(tokens[8], FStringToken::ExprEnd));
     }
 }
