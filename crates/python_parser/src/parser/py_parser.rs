@@ -17,7 +17,7 @@ use crate::{syntax::PyTreeBuilder, text::Reader};
 #[allow(unused)]
 pub struct PyParser<'a> {
     text: &'a str,
-    events: Vec<MarkEvent>,
+    events: &'a mut Vec<MarkEvent>,
     tokens: Vec<PyTokenData>,
     token_index: usize,
     current_token: PyTokenKind,
@@ -60,10 +60,11 @@ impl<'a> PyParser<'a> {
                 PyLexer::new(Reader::new(text), config.lexer_config(), Some(&mut errors));
             lexer.tokenize()
         };
+        let mut events: Vec<MarkEvent> = Vec::new();
 
         let mut parser = PyParser {
             text,
-            events: Vec::new(),
+            events: &mut events,
             tokens,
             token_index: 0,
             current_token: PyTokenKind::None,
@@ -78,7 +79,7 @@ impl<'a> PyParser<'a> {
         parse_module_suite(&mut parser);
         let errors = parser.get_errors();
         let root = {
-            let mut builder = PyTreeBuilder::new(parser.origin_text(), parser.events, node_cache);
+            let mut builder = PyTreeBuilder::new(text, events, node_cache);
             builder.build();
             builder.finish()
         };
@@ -89,8 +90,9 @@ impl<'a> PyParser<'a> {
         text: &'a str,
         range: SourceRange,
         config: ParserConfig,
+        events: &mut Vec<MarkEvent>,
         errors: &'a mut Vec<PyParseError>,
-    ) -> Vec<MarkEvent>{
+    ) {
         let tokens = {
             let mut lexer = PyLexer::new(
                 Reader::new_with_range(text, range),
@@ -102,7 +104,7 @@ impl<'a> PyParser<'a> {
 
         let mut parser = PyParser {
             text,
-            events: Vec::new(),
+            events,
             tokens,
             token_index: 0,
             current_token: PyTokenKind::None,
@@ -115,8 +117,6 @@ impl<'a> PyParser<'a> {
         };
 
         parse_fstring_inner_expr(&mut parser);
-
-        parser.events
     }
 
     pub fn init(&mut self) {

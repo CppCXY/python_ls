@@ -83,6 +83,7 @@ impl Marker {
                 kind: PySyntaxKind::None,
             };
         }
+
         p.push_node_end();
         CompleteMarker {
             start: self.position,

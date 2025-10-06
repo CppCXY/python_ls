@@ -29,8 +29,13 @@ pub fn parse_fstring_expr(p: &mut PyParser) -> ParseResult {
             FStringToken::Expr(range) => {
                 // Handle Python expression inside f-string
                 let text = &p.source_text()[range.start_offset..range.end_offset()];
-                let events = PyParser::parse_sub_expression(text, range, p.parse_config(), &mut errors);
-                p.add_events(events);
+                PyParser::parse_sub_expression(
+                    text,
+                    range,
+                    p.parse_config(),
+                    p.get_events(),
+                    &mut errors,
+                );
             }
             FStringToken::FormatSpec(range) => {
                 p.eat_token(PyTokenKind::TkFStringFormatSpec, range);

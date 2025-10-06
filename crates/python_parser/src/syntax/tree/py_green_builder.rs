@@ -151,7 +151,9 @@ impl PyGreenNodeBuilder<'_> {
             matches!(
                 element,
                 PyGreenElement::Token {
-                    kind: PyTokenKind::TkWhitespace | PyTokenKind::TkNewline,
+                    kind: PyTokenKind::TkWhitespace
+                        | PyTokenKind::TkNewline
+                        | PyTokenKind::TkComment,
                     ..
                 } | PyGreenElement::Node {
                     kind: PySyntaxKind::Comment,
