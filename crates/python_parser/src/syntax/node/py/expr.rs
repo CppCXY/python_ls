@@ -1,5 +1,8 @@
+use rowan::NodeOrToken;
+
 use super::PyArguments;
 use crate::{
+    PyLiteralToken, PyNameToken, PyTokenKind,
     kind::PySyntaxKind,
     syntax::traits::{PyAstNode, PySyntaxNode},
 };
@@ -233,56 +236,68 @@ impl PyAstNode for PyExpr {
 
 // 为每个表达式节点实现子节点访问方法
 impl PyNameExpr {
-    pub fn get_id(&self) -> Option<String> {
-        self.syntax()
-            .first_token()
-            .map(|token| token.text().to_string())
+    pub fn get_name_token(&self) -> Option<PyNameToken> {
+        self.token()
     }
 }
 
 impl PyLiteralExpr {
-    pub fn get_value(&self) -> Option<String> {
-        self.syntax()
-            .first_token()
-            .map(|token| token.text().to_string())
+    pub fn get_literal(&self) -> Option<PyLiteralToken> {
+        self.token()
     }
 }
 
 impl PyListExpr {
-    pub fn get_elements(&self) -> impl Iterator<Item = PyExpr> + '_ {
-        self.syntax().children().filter_map(PyExpr::cast)
+    pub fn get_exprs(&self) -> impl Iterator<Item = PyExpr> + '_ {
+        self.children()
     }
 }
 
 impl PyTupleExpr {
-    pub fn get_elements(&self) -> impl Iterator<Item = PyExpr> + '_ {
-        self.syntax().children().filter_map(PyExpr::cast)
+    pub fn get_exprs(&self) -> impl Iterator<Item = PyExpr> + '_ {
+        self.children()
     }
 }
 
 impl PySetExpr {
-    pub fn get_elements(&self) -> impl Iterator<Item = PyExpr> + '_ {
-        self.syntax().children().filter_map(PyExpr::cast)
+    pub fn get_exprs(&self) -> impl Iterator<Item = PyExpr> + '_ {
+        self.children()
     }
 }
 
 impl PyDictExpr {
-    pub fn get_keys(&self) -> impl Iterator<Item = PyExpr> + '_ {
-        self.syntax().children().filter_map(PyExpr::cast).step_by(2)
-    }
-
-    pub fn get_values(&self) -> impl Iterator<Item = PyExpr> + '_ {
-        self.syntax()
-            .children()
-            .filter_map(PyExpr::cast)
-            .skip(1)
-            .step_by(2)
+    pub fn get_key_values(&self) -> Vec<(Option<PyExpr>, Option<PyExpr>)> {
+        let mut pairs = Vec::new();
+        let mut expect_value = false;
+        for node_or_token in self.syntax().children_with_tokens() {
+            match node_or_token {
+                NodeOrToken::Node(node) => {
+                    if let Some(expr) = PyExpr::cast(node) {
+                        if expect_value {
+                            if let Some((_, value)) = pairs.last_mut() {
+                                *value = Some(expr);
+                            }
+                            expect_value = false;
+                        } else {
+                            pairs.push((Some(expr), None));
+                            expect_value = true;
+                        }
+                    }
+                }
+                NodeOrToken::Token(token) => {
+                    if token.kind() == PyTokenKind::TkComma.into() {
+                        expect_value = false;
+                    }
+                }
+            }
+        }
+        pairs
     }
 }
 
 impl PyGeneratorExpr {
-    pub fn get_element(&self) -> Option<PyExpr> {
-        self.syntax().children().find_map(PyExpr::cast)
+    pub fn get_expr(&self) -> Option<PyExpr> {
+        self.child()
     }
 
     pub fn get_generators(&self) -> impl Iterator<Item = PyExpr> + '_ {
@@ -326,15 +341,14 @@ impl PySetCompExpr {
 
 impl PyAttributeExpr {
     pub fn get_value(&self) -> Option<PyExpr> {
-        self.syntax().children().find_map(PyExpr::cast)
+        self.child()
     }
 
     pub fn get_attr(&self) -> Option<String> {
         self.syntax()
-            .children()
-            .filter_map(PyNameExpr::cast)
-            .last()
-            .and_then(|name| name.get_id())
+            .children_with_tokens()
+            .find_map(|child| child.into_token())
+            .map(|token| token.text().to_string())
     }
 }
 

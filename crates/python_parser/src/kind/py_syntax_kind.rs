@@ -53,6 +53,7 @@ pub enum PySyntaxKind {
     NameExpr,    // identifier/name
     LiteralExpr, // literal values (int, float, string, etc.)
     FStringExpr, // f-string expression with embedded expressions
+    TStringExpr, // t-string expression (template string, Python 3.14+)
     ParenExpr,   // parenthesized expression
     TupleExpr,   // tuple expression
     ListExpr,    // list expression

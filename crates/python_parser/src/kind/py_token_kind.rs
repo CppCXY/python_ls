@@ -114,6 +114,7 @@ pub enum PyTokenKind {
     TkBytesString,    // bytes literal
     TkRawBytesString, // raw bytes literal
     TkFString,        // f-string literal
+    TkTString,        // t-string literal (Python 3.14+)
     TkRawString,      // raw string literal
     TkEllipsis,       // ... (ellipsis literal)
 

@@ -216,8 +216,9 @@ fn parse_simple_expr(p: &mut PyParser) -> ParseResult {
             Ok(m.complete(p))
         }
         PyTokenKind::TkFString => parse_fstring_expr(p),
+        PyTokenKind::TkTString => parse_tstring_expr(p),
         PyTokenKind::TkLeftBracket => parse_list_expr(p),
-        PyTokenKind::TkLeftBrace => parse_dict_expr(p),
+        PyTokenKind::TkLeftBrace => parse_dict_or_set_expr(p),
         PyTokenKind::TkLambda => parse_lambda_expr(p),
         PyTokenKind::TkYield => parse_yield_expr(p),
         PyTokenKind::TkAwait => parse_await_expr(p),
@@ -335,6 +336,16 @@ fn parse_await_expr(p: &mut PyParser) -> ParseResult {
         ));
     }
 
+    Ok(m.complete(p))
+}
+
+fn parse_tstring_expr(p: &mut PyParser) -> ParseResult {
+    let m = p.mark(PySyntaxKind::TStringExpr);
+    
+    // T-strings are supported in Python 3.14+
+    // Similar to f-strings but return Template objects instead of strings
+    
+    p.bump(); // consume t-string token
     Ok(m.complete(p))
 }
 
@@ -498,6 +509,180 @@ fn parse_dict_expr(p: &mut PyParser) -> ParseResult {
     Ok(m.complete(p))
 }
 
+fn parse_dict_or_set_expr(p: &mut PyParser) -> ParseResult {
+    let mut m = p.mark(PySyntaxKind::DictExpr);
+    p.bump(); // consume '{'
+
+    // Empty dict/set
+    if p.current_token() == PyTokenKind::TkRightBrace {
+        p.bump(); // consume '}'
+        return Ok(m.complete(p));
+    }
+
+    // Parse first expression
+    if parse_sub_expr(p, 0).is_err() {
+        p.push_error(PyParseError::syntax_error_from(
+            &t!("expected expression in dict or set"),
+            p.current_token_range(),
+        ));
+        return Err(ParseFailReason::UnexpectedToken);
+    }
+
+    // Determine if it's a dict, set, or comprehension
+    match p.current_token() {
+        PyTokenKind::TkColon => {
+            // This is a dict: {key: value, ...}
+            p.bump(); // consume ':'
+            
+            // Parse value
+            if parse_single_expr(p).is_err() {
+                p.push_error(PyParseError::syntax_error_from(
+                    &t!("expected value expression after ':'"),
+                    p.current_token_range(),
+                ));
+            }
+            
+            // Check for dict comprehension
+            if p.current_token() == PyTokenKind::TkFor {
+                m.set_kind(p, PySyntaxKind::DictCompExpr);
+                parse_comprehension_clauses(p);
+            } else {
+                // Regular dict - parse remaining key-value pairs
+                while p.current_token() == PyTokenKind::TkComma {
+                    p.bump();
+                    if p.current_token() == PyTokenKind::TkRightBrace {
+                        break;
+                    }
+                    
+                    if parse_single_expr(p).is_err() {
+                        p.push_error(PyParseError::syntax_error_from(
+                            &t!("expected key expression"),
+                            p.current_token_range(),
+                        ));
+                        break;
+                    }
+                    
+                    if p.current_token() == PyTokenKind::TkColon {
+                        p.bump();
+                    } else {
+                        p.push_error(PyParseError::syntax_error_from(
+                            &t!("expected ':' after dictionary key"),
+                            p.current_token_range(),
+                        ));
+                        break;
+                    }
+                    
+                    if parse_single_expr(p).is_err() {
+                        p.push_error(PyParseError::syntax_error_from(
+                            &t!("expected value expression"),
+                            p.current_token_range(),
+                        ));
+                        break;
+                    }
+                }
+            }
+        }
+        PyTokenKind::TkFor => {
+            // Set comprehension: {expr for ...}
+            m.set_kind(p, PySyntaxKind::SetCompExpr);
+            parse_comprehension_clauses(p);
+        }
+        PyTokenKind::TkComma => {
+            // Set: {expr, expr, ...}
+            m.set_kind(p, PySyntaxKind::SetExpr);
+            
+            while p.current_token() == PyTokenKind::TkComma {
+                p.bump();
+                if p.current_token() == PyTokenKind::TkRightBrace {
+                    break;
+                }
+                
+                if parse_conditional_or_expr(p).is_err() {
+                    p.push_error(PyParseError::syntax_error_from(
+                        &t!("expected expression in set"),
+                        p.current_token_range(),
+                    ));
+                    break;
+                }
+            }
+        }
+        PyTokenKind::TkRightBrace => {
+            // Single element set: {expr}
+            m.set_kind(p, PySyntaxKind::SetExpr);
+        }
+        _ => {
+            p.push_error(PyParseError::syntax_error_from(
+                &t!("expected ':', ',', 'for', or '}'"),
+                p.current_token_range(),
+            ));
+        }
+    }
+
+    if p.current_token() == PyTokenKind::TkRightBrace {
+        p.bump();
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            &t!("expected '}' to close dict or set"),
+            p.current_token_range(),
+        ));
+    }
+
+    Ok(m.complete(p))
+}
+
+fn parse_comprehension_clauses(p: &mut PyParser) {
+    // Parse 'for' clause
+    p.bump(); // consume 'for'
+    
+    // Parse target variable(s)
+    if p.current_token() == PyTokenKind::TkName {
+        p.bump();
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            &t!("expected target variable after 'for'"),
+            p.current_token_range(),
+        ));
+        return;
+    }
+    
+    // Parse 'in' keyword
+    if p.current_token() == PyTokenKind::TkIn {
+        p.bump();
+    } else {
+        p.push_error(PyParseError::syntax_error_from(
+            &t!("expected 'in' after for target"),
+            p.current_token_range(),
+        ));
+        return;
+    }
+    
+    // Parse iterator expression
+    if parse_sub_expr(p, 0).is_err() {
+        p.push_error(PyParseError::syntax_error_from(
+            &t!("expected iterator expression after 'in'"),
+            p.current_token_range(),
+        ));
+        return;
+    }
+    
+    // Optional 'if' conditions
+    while p.current_token() == PyTokenKind::TkIf {
+        p.bump();
+        if parse_sub_expr(p, 0).is_err() {
+            p.push_error(PyParseError::syntax_error_from(
+                &t!("expected condition after 'if'"),
+                p.current_token_range(),
+            ));
+            return;
+        }
+    }
+    
+    // Additional 'for' clauses
+    if p.current_token() == PyTokenKind::TkFor {
+        parse_comprehension_clauses(p);
+    }
+}
+
 fn parse_lambda_params(p: &mut PyParser) -> ParseResult {
     let m = p.mark(PySyntaxKind::Parameters);
 
@@ -634,9 +819,9 @@ fn parse_args(p: &mut PyParser) -> ParseResult {
 }
 
 /// Parse parenthesized expression or tuple
-/// Handles: (), (expr), (expr,), (expr1, expr2, ...)
+/// Handles: (), (expr), (expr,), (expr1, expr2, ...), (expr for ...)
 fn parse_parenthesized_expr_or_tuple(p: &mut PyParser) -> ParseResult {
-    let mut m = p.mark(PySyntaxKind::ParenExpr); // Start as paren expr, might change to tuple
+    let mut m = p.mark(PySyntaxKind::ParenExpr); // Start as paren expr, might change to tuple or generator
     let paren_range = p.current_token_range();
     p.smart_bump(); // consume '('
 
@@ -656,10 +841,14 @@ fn parse_parenthesized_expr_or_tuple(p: &mut PyParser) -> ParseResult {
         return Err(ParseFailReason::UnexpectedToken);
     }
 
-    // Check for comma (indicates tuple)
-    let mut is_tuple = false;
-    if p.current_token() == PyTokenKind::TkComma {
-        is_tuple = true;
+    // Check for generator expression or tuple
+    if p.current_token() == PyTokenKind::TkFor {
+        // This is a generator expression: (expr for ...)
+        m.set_kind(p, PySyntaxKind::GeneratorExpr);
+        parse_comprehension_clauses(p);
+    } else if p.current_token() == PyTokenKind::TkComma {
+        // This is a tuple
+        m.set_kind(p, PySyntaxKind::TupleExpr);
         p.bump(); // consume comma
 
         // Parse remaining elements (could be empty for single-element tuple like (x,))
@@ -687,11 +876,6 @@ fn parse_parenthesized_expr_or_tuple(p: &mut PyParser) -> ParseResult {
             &t!("expected ')' to close parentheses"),
             p.current_token_range(),
         ));
-    }
-
-    // Set the correct node type
-    if is_tuple {
-        m.set_kind(p, PySyntaxKind::TupleExpr);
     }
 
     Ok(m.complete(p))
