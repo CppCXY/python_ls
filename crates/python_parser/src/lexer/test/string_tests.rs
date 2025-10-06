@@ -126,4 +126,76 @@ mod tests {
         let tokens = test_tokenize(r#"br"""raw bytes triple""""#);
         assert!(tokens.contains(&PyTokenKind::TkRawBytesString));
     }
+
+    fn lex_string(source: &str) -> Vec<PyTokenKind> {
+        let reader = Reader::new(source);
+        let mut lexer = PyLexer::new(reader, LexerConfig::default(), None);
+        lexer.tokenize().into_iter().map(|t| t.kind).collect()
+    }
+
+    #[test]
+    fn test_fstring_with_nested_quotes_double() {
+        // f"test {foo("bar")} end"
+        let tokens = lex_string(r#"f"test {foo("bar")} end""#);
+
+        // Should get: TkFString
+        assert!(tokens.contains(&PyTokenKind::TkFString));
+
+        // Should not have unterminated string error - the whole f-string should be one token
+        assert_eq!(tokens.len(), 1); // Just the f-string token
+    }
+
+    #[test]
+    fn test_fstring_with_nested_quotes_single() {
+        // f'test {foo('bar')} end'
+        let tokens = lex_string(r#"f'test {foo('bar')} end'"#);
+
+        assert!(tokens.contains(&PyTokenKind::TkFString));
+        assert_eq!(tokens.len(), 1);
+    }
+
+    #[test]
+    fn test_fstring_with_dict_access() {
+        // f"value: {data["key"]}"
+        let tokens = lex_string(r#"f"value: {data["key"]}""#);
+
+        assert!(tokens.contains(&PyTokenKind::TkFString));
+        assert_eq!(tokens.len(), 1);
+    }
+
+    #[test]
+    fn test_fstring_with_escaped_braces() {
+        // f"{{escaped}} {real_var}"
+        let tokens = lex_string(r#"f"{{escaped}} {real_var}""#);
+
+        assert!(tokens.contains(&PyTokenKind::TkFString));
+        assert_eq!(tokens.len(), 1);
+    }
+
+    #[test]
+    fn test_fstring_triple_quoted_with_nested_quotes() {
+        // f"""test {foo("bar")} end"""
+        let tokens = lex_string(r#"f"""test {foo("bar")} end""""#);
+
+        assert!(tokens.contains(&PyTokenKind::TkFString));
+        assert_eq!(tokens.len(), 1);
+    }
+
+    #[test]
+    fn test_regular_string_not_affected() {
+        // Regular strings should work as before
+        let tokens = lex_string(r#""hello world""#);
+
+        assert!(tokens.contains(&PyTokenKind::TkString));
+        assert_eq!(tokens.len(), 1);
+    }
+
+    #[test]
+    fn test_fstring_with_nested_brackets() {
+        // f"result: {arr[func(x, y)]}"
+        let tokens = lex_string(r#"f"result: {arr[func(x, y)]}""#);
+
+        assert!(tokens.contains(&PyTokenKind::TkFString));
+        assert_eq!(tokens.len(), 1);
+    }
 }

@@ -163,25 +163,26 @@ impl<'a> FStringLexer<'a> {
                         self.reader.bump();
                     }
                 }
-            } 
+            }
             // Handle string literals inside expressions (Python 3.12+)
             // This allows f"{foo('bar')}" or even f"{foo("bar")}"
             else if matches!(ch, '"' | '\'') {
                 let quote = ch;
                 self.reader.bump(); // consume opening quote
-                
+
                 // Check for triple-quoted strings
                 if self.reader.current_char() == quote && self.reader.next_char() == quote {
                     // Triple-quoted string
                     self.reader.bump(); // second quote
                     self.reader.bump(); // third quote
-                    
+
                     // Consume until closing triple quotes
                     while !self.reader.is_eof() {
                         if self.reader.current_char() == quote {
                             self.reader.bump();
-                            if self.reader.current_char() == quote 
-                                && self.reader.next_char() == quote {
+                            if self.reader.current_char() == quote
+                                && self.reader.next_char() == quote
+                            {
                                 self.reader.bump(); // second closing quote
                                 self.reader.bump(); // third closing quote
                                 break;
@@ -199,7 +200,7 @@ impl<'a> FStringLexer<'a> {
                     // Regular string
                     while !self.reader.is_eof() {
                         let inner_ch = self.reader.current_char();
-                        
+
                         if inner_ch == quote {
                             self.reader.bump(); // consume closing quote
                             break;

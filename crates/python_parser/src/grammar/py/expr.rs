@@ -339,16 +339,6 @@ fn parse_await_expr(p: &mut PyParser) -> ParseResult {
     Ok(m.complete(p))
 }
 
-fn parse_tstring_expr(p: &mut PyParser) -> ParseResult {
-    let m = p.mark(PySyntaxKind::TStringExpr);
-    
-    // T-strings are supported in Python 3.14+
-    // Similar to f-strings but return Template objects instead of strings
-    
-    p.bump(); // consume t-string token
-    Ok(m.complete(p))
-}
-
 fn parse_list_expr(p: &mut PyParser) -> ParseResult {
     parse_list_or_comprehension(p)
 }
@@ -533,7 +523,7 @@ fn parse_dict_or_set_expr(p: &mut PyParser) -> ParseResult {
         PyTokenKind::TkColon => {
             // This is a dict: {key: value, ...}
             p.bump(); // consume ':'
-            
+
             // Parse value
             if parse_single_expr(p).is_err() {
                 p.push_error(PyParseError::syntax_error_from(
@@ -541,7 +531,7 @@ fn parse_dict_or_set_expr(p: &mut PyParser) -> ParseResult {
                     p.current_token_range(),
                 ));
             }
-            
+
             // Check for dict comprehension
             if p.current_token() == PyTokenKind::TkFor {
                 m.set_kind(p, PySyntaxKind::DictCompExpr);
@@ -553,7 +543,7 @@ fn parse_dict_or_set_expr(p: &mut PyParser) -> ParseResult {
                     if p.current_token() == PyTokenKind::TkRightBrace {
                         break;
                     }
-                    
+
                     if parse_single_expr(p).is_err() {
                         p.push_error(PyParseError::syntax_error_from(
                             &t!("expected key expression"),
@@ -561,7 +551,7 @@ fn parse_dict_or_set_expr(p: &mut PyParser) -> ParseResult {
                         ));
                         break;
                     }
-                    
+
                     if p.current_token() == PyTokenKind::TkColon {
                         p.bump();
                     } else {
@@ -571,7 +561,7 @@ fn parse_dict_or_set_expr(p: &mut PyParser) -> ParseResult {
                         ));
                         break;
                     }
-                    
+
                     if parse_single_expr(p).is_err() {
                         p.push_error(PyParseError::syntax_error_from(
                             &t!("expected value expression"),
@@ -590,13 +580,13 @@ fn parse_dict_or_set_expr(p: &mut PyParser) -> ParseResult {
         PyTokenKind::TkComma => {
             // Set: {expr, expr, ...}
             m.set_kind(p, PySyntaxKind::SetExpr);
-            
+
             while p.current_token() == PyTokenKind::TkComma {
                 p.bump();
                 if p.current_token() == PyTokenKind::TkRightBrace {
                     break;
                 }
-                
+
                 if parse_conditional_or_expr(p).is_err() {
                     p.push_error(PyParseError::syntax_error_from(
                         &t!("expected expression in set"),
@@ -633,7 +623,7 @@ fn parse_dict_or_set_expr(p: &mut PyParser) -> ParseResult {
 fn parse_comprehension_clauses(p: &mut PyParser) {
     // Parse 'for' clause
     p.bump(); // consume 'for'
-    
+
     // Parse target variable(s)
     if p.current_token() == PyTokenKind::TkName {
         p.bump();
@@ -644,7 +634,7 @@ fn parse_comprehension_clauses(p: &mut PyParser) {
         ));
         return;
     }
-    
+
     // Parse 'in' keyword
     if p.current_token() == PyTokenKind::TkIn {
         p.bump();
@@ -655,7 +645,7 @@ fn parse_comprehension_clauses(p: &mut PyParser) {
         ));
         return;
     }
-    
+
     // Parse iterator expression
     if parse_sub_expr(p, 0).is_err() {
         p.push_error(PyParseError::syntax_error_from(
@@ -664,7 +654,7 @@ fn parse_comprehension_clauses(p: &mut PyParser) {
         ));
         return;
     }
-    
+
     // Optional 'if' conditions
     while p.current_token() == PyTokenKind::TkIf {
         p.bump();
@@ -676,7 +666,7 @@ fn parse_comprehension_clauses(p: &mut PyParser) {
             return;
         }
     }
-    
+
     // Additional 'for' clauses
     if p.current_token() == PyTokenKind::TkFor {
         parse_comprehension_clauses(p);

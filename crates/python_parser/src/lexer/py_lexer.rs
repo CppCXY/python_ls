@@ -536,8 +536,15 @@ impl<'a> PyLexer<'a> {
     }
 
     fn lex_triple_string(&mut self, quote: char, string_type: PyTokenKind) -> PyTokenKind {
+        // For f-strings, we need to track bracket depth to handle nested quotes
+        let is_fstring = string_type == PyTokenKind::TkFString;
+        let mut brace_depth = 0;
+
         while !self.reader.is_eof() {
-            if self.reader.current_char() == quote {
+            let ch = self.reader.current_char();
+
+            // Check for closing triple quotes only when at brace depth 0 (for f-strings)
+            if ch == quote && (!is_fstring || brace_depth == 0) {
                 self.reader.bump(); // consume first quote
                 if self.reader.current_char() == quote {
                     self.reader.bump(); // consume second quote
@@ -551,12 +558,40 @@ impl<'a> PyLexer<'a> {
                 continue;
             }
 
-            if self.reader.current_char() == '\\' {
+            if ch == '\\' {
                 self.reader.bump(); // skip escape character
                 if !self.reader.is_eof() {
                     self.reader.bump(); // skip escaped character
                 }
             } else {
+                // Track brace depth for f-strings
+                if is_fstring {
+                    match ch {
+                        '{' => {
+                            // Check for escaped brace {{
+                            if self.reader.next_char() != '{' {
+                                brace_depth += 1;
+                            } else {
+                                self.reader.bump(); // skip first {
+                                self.reader.bump(); // skip second {
+                                continue;
+                            }
+                        }
+                        '}' => {
+                            // Check for escaped brace }}
+                            if self.reader.next_char() != '}' {
+                                if brace_depth > 0 {
+                                    brace_depth -= 1;
+                                }
+                            } else {
+                                self.reader.bump(); // skip first }
+                                self.reader.bump(); // skip second }
+                                continue;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
                 self.reader.bump();
             }
         }
@@ -567,9 +602,15 @@ impl<'a> PyLexer<'a> {
     }
 
     fn lex_string(&mut self, quote: char, string_type: PyTokenKind) -> PyTokenKind {
+        // For f-strings, we need to track bracket depth to handle nested quotes
+        let is_fstring = string_type == PyTokenKind::TkFString;
+        let mut brace_depth = 0;
+
         while !self.reader.is_eof() {
             let ch = self.reader.current_char();
-            if ch == quote {
+
+            // Only consider quote as terminator when at brace depth 0 (for f-strings)
+            if ch == quote && (!is_fstring || brace_depth == 0) {
                 break;
             }
 
@@ -595,6 +636,34 @@ impl<'a> PyLexer<'a> {
                     }
                 }
             } else {
+                // Track brace depth for f-strings
+                if is_fstring {
+                    match ch {
+                        '{' => {
+                            // Check for escaped brace {{
+                            if self.reader.next_char() != '{' {
+                                brace_depth += 1;
+                            } else {
+                                self.reader.bump(); // skip first {
+                                self.reader.bump(); // skip second {
+                                continue;
+                            }
+                        }
+                        '}' => {
+                            // Check for escaped brace }}
+                            if self.reader.next_char() != '}' {
+                                if brace_depth > 0 {
+                                    brace_depth -= 1;
+                                }
+                            } else {
+                                self.reader.bump(); // skip first }
+                                self.reader.bump(); // skip second }
+                                continue;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
                 self.reader.bump();
             }
         }
