@@ -4,8 +4,12 @@ use crate::{
 };
 
 /// Parse f-string expression with embedded expressions
-pub fn parse_fstring_expr(p: &mut PyParser) -> ParseResult {
-    let m = p.mark(PySyntaxKind::FStringExpr);
+pub fn parse_fstring_or_tstring_expr(p: &mut PyParser, kind: PySyntaxKind) -> ParseResult {
+    assert!(
+        kind == PySyntaxKind::FStringExpr || kind == PySyntaxKind::TStringExpr,
+        "Expected FStringExpr or TStringExpr kind"
+    );
+    let m = p.mark(kind);
 
     // Get the f-string token text to parse its content
     let fstring_text = p.current_token_text().to_string();

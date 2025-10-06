@@ -138,6 +138,7 @@ impl<'a> FStringLexer<'a> {
 
     fn lex_expr(&mut self) {
         // Collect expression content until we hit !, :, or }
+        // Python 3.12+ allows using the same quote characters inside f-string expressions
         while !self.reader.is_eof() {
             let ch = self.reader.current_char();
 
@@ -160,6 +161,60 @@ impl<'a> FStringLexer<'a> {
                         self.brace_depth -= 1;
                     } else {
                         self.reader.bump();
+                    }
+                }
+            } 
+            // Handle string literals inside expressions (Python 3.12+)
+            // This allows f"{foo('bar')}" or even f"{foo("bar")}"
+            else if matches!(ch, '"' | '\'') {
+                let quote = ch;
+                self.reader.bump(); // consume opening quote
+                
+                // Check for triple-quoted strings
+                if self.reader.current_char() == quote && self.reader.next_char() == quote {
+                    // Triple-quoted string
+                    self.reader.bump(); // second quote
+                    self.reader.bump(); // third quote
+                    
+                    // Consume until closing triple quotes
+                    while !self.reader.is_eof() {
+                        if self.reader.current_char() == quote {
+                            self.reader.bump();
+                            if self.reader.current_char() == quote 
+                                && self.reader.next_char() == quote {
+                                self.reader.bump(); // second closing quote
+                                self.reader.bump(); // third closing quote
+                                break;
+                            }
+                        } else if self.reader.current_char() == '\\' {
+                            self.reader.bump(); // escape
+                            if !self.reader.is_eof() {
+                                self.reader.bump(); // escaped char
+                            }
+                        } else {
+                            self.reader.bump();
+                        }
+                    }
+                } else {
+                    // Regular string
+                    while !self.reader.is_eof() {
+                        let inner_ch = self.reader.current_char();
+                        
+                        if inner_ch == quote {
+                            self.reader.bump(); // consume closing quote
+                            break;
+                        } else if inner_ch == '\\' {
+                            self.reader.bump(); // consume backslash
+                            if !self.reader.is_eof() {
+                                self.reader.bump(); // consume escaped character
+                            }
+                        } else if matches!(inner_ch, '\n' | '\r') {
+                            // Unterminated string in single line
+                            self.push_error("Unterminated string in f-string expression");
+                            break;
+                        } else {
+                            self.reader.bump();
+                        }
                     }
                 }
             } else {
@@ -306,6 +361,67 @@ mod tests {
         assert!(matches!(tokens[0], FStringToken::Text(_)));
         assert!(matches!(tokens[1], FStringToken::ExprStart(_)));
         assert!(matches!(tokens[2], FStringToken::Expr(_))); // foo(a, b)
+        assert!(matches!(tokens[3], FStringToken::ExprEnd(_)));
+    }
+
+    #[test]
+    fn test_fstring_with_same_quotes_inside() {
+        // Python 3.12+ allows using the same quotes inside f-string expressions
+        let mut lexer = FStringLexer::new(r#"value: {foo("bar")}"#, None);
+        let tokens = lexer.tokenize();
+
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0], FStringToken::Text(_))); // "value: "
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_))); // {
+        assert!(matches!(tokens[2], FStringToken::Expr(_))); // foo("bar")
+        assert!(matches!(tokens[3], FStringToken::ExprEnd(_))); // }
+    }
+
+    #[test]
+    fn test_fstring_with_single_quotes_inside() {
+        let mut lexer = FStringLexer::new("value: {foo('bar')}", None);
+        let tokens = lexer.tokenize();
+
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0], FStringToken::Text(_)));
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_)));
+        assert!(matches!(tokens[2], FStringToken::Expr(_))); // foo('bar')
+        assert!(matches!(tokens[3], FStringToken::ExprEnd(_)));
+    }
+
+    #[test]
+    fn test_fstring_with_nested_dict() {
+        let mut lexer = FStringLexer::new(r#"data: {d["key"]}"#, None);
+        let tokens = lexer.tokenize();
+
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0], FStringToken::Text(_)));
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_)));
+        assert!(matches!(tokens[2], FStringToken::Expr(_))); // d["key"]
+        assert!(matches!(tokens[3], FStringToken::ExprEnd(_)));
+    }
+
+    #[test]
+    fn test_fstring_with_triple_quotes_inside() {
+        let mut lexer = FStringLexer::new(r#"value: {'''triple'''}"#, None);
+        let tokens = lexer.tokenize();
+
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0], FStringToken::Text(_)));
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_)));
+        assert!(matches!(tokens[2], FStringToken::Expr(_))); // '''triple'''
+        assert!(matches!(tokens[3], FStringToken::ExprEnd(_)));
+    }
+
+    #[test]
+    fn test_fstring_with_escaped_quotes() {
+        let mut lexer = FStringLexer::new(r#"value: {foo('it\'s')}"#, None);
+        let tokens = lexer.tokenize();
+
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0], FStringToken::Text(_)));
+        assert!(matches!(tokens[1], FStringToken::ExprStart(_)));
+        assert!(matches!(tokens[2], FStringToken::Expr(_))); // foo('it\'s')
         assert!(matches!(tokens[3], FStringToken::ExprEnd(_)));
     }
 }

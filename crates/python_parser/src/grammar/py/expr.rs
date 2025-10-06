@@ -1,5 +1,5 @@
 use crate::{
-    grammar::{ParseFailReason, ParseResult, fstring::parse_fstring_expr},
+    grammar::{ParseFailReason, ParseResult, fstring::parse_fstring_or_tstring_expr},
     kind::{BinaryOperator, PyOpKind, PySyntaxKind, PyTokenKind, UNARY_PRIORITY, UnaryOperator},
     parser::{MarkerEventContainer, PyParser},
     parser_error::PyParseError,
@@ -215,8 +215,8 @@ fn parse_simple_expr(p: &mut PyParser) -> ParseResult {
             p.bump();
             Ok(m.complete(p))
         }
-        PyTokenKind::TkFString => parse_fstring_expr(p),
-        PyTokenKind::TkTString => parse_tstring_expr(p),
+        PyTokenKind::TkFString => parse_fstring_or_tstring_expr(p, PySyntaxKind::FStringExpr),
+        PyTokenKind::TkTString => parse_fstring_or_tstring_expr(p, PySyntaxKind::TStringExpr),
         PyTokenKind::TkLeftBracket => parse_list_expr(p),
         PyTokenKind::TkLeftBrace => parse_dict_or_set_expr(p),
         PyTokenKind::TkLambda => parse_lambda_expr(p),
@@ -451,63 +451,63 @@ fn parse_list_or_comprehension(p: &mut PyParser) -> ParseResult {
     Ok(m.complete(p))
 }
 
-fn parse_dict_expr(p: &mut PyParser) -> ParseResult {
-    let m = p.mark(PySyntaxKind::DictExpr);
-    p.bump(); // consume '{'
+// fn parse_dict_expr(p: &mut PyParser) -> ParseResult {
+//     let m = p.mark(PySyntaxKind::DictExpr);
+//     p.bump(); // consume '{'
 
-    if p.current_token() != PyTokenKind::TkRightBrace {
-        loop {
-            // Parse key
-            if parse_single_expr(p).is_err() {
-                p.push_error(PyParseError::syntax_error_from(
-                    &t!("expected key expression in dictionary"),
-                    p.current_token_range(),
-                ));
-                break;
-            }
+//     if p.current_token() != PyTokenKind::TkRightBrace {
+//         loop {
+//             // Parse key
+//             if parse_single_expr(p).is_err() {
+//                 p.push_error(PyParseError::syntax_error_from(
+//                     &t!("expected key expression in dictionary"),
+//                     p.current_token_range(),
+//                 ));
+//                 break;
+//             }
 
-            if p.current_token() == PyTokenKind::TkColon {
-                p.bump();
-            } else {
-                p.push_error(PyParseError::syntax_error_from(
-                    &t!("expected ':' after dictionary key"),
-                    p.current_token_range(),
-                ));
-                break;
-            }
+//             if p.current_token() == PyTokenKind::TkColon {
+//                 p.bump();
+//             } else {
+//                 p.push_error(PyParseError::syntax_error_from(
+//                     &t!("expected ':' after dictionary key"),
+//                     p.current_token_range(),
+//                 ));
+//                 break;
+//             }
 
-            // Parse value
-            if parse_single_expr(p).is_err() {
-                p.push_error(PyParseError::syntax_error_from(
-                    &t!("expected value expression in dictionary"),
-                    p.current_token_range(),
-                ));
-                break;
-            }
+//             // Parse value
+//             if parse_single_expr(p).is_err() {
+//                 p.push_error(PyParseError::syntax_error_from(
+//                     &t!("expected value expression in dictionary"),
+//                     p.current_token_range(),
+//                 ));
+//                 break;
+//             }
 
-            if p.current_token() == PyTokenKind::TkComma {
-                p.bump();
-                if p.current_token() == PyTokenKind::TkRightBrace {
-                    // trailing comma
-                    break;
-                }
-            } else {
-                break;
-            }
-        }
-    }
+//             if p.current_token() == PyTokenKind::TkComma {
+//                 p.bump();
+//                 if p.current_token() == PyTokenKind::TkRightBrace {
+//                     // trailing comma
+//                     break;
+//                 }
+//             } else {
+//                 break;
+//             }
+//         }
+//     }
 
-    if p.current_token() == PyTokenKind::TkRightBrace {
-        p.bump();
-    } else {
-        p.push_error(PyParseError::syntax_error_from(
-            &t!("expected '}' to close dictionary"),
-            p.current_token_range(),
-        ));
-    }
+//     if p.current_token() == PyTokenKind::TkRightBrace {
+//         p.bump();
+//     } else {
+//         p.push_error(PyParseError::syntax_error_from(
+//             &t!("expected '}' to close dictionary"),
+//             p.current_token_range(),
+//         ));
+//     }
 
-    Ok(m.complete(p))
-}
+//     Ok(m.complete(p))
+// }
 
 fn parse_dict_or_set_expr(p: &mut PyParser) -> ParseResult {
     let mut m = p.mark(PySyntaxKind::DictExpr);

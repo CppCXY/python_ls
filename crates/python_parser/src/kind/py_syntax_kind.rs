@@ -150,9 +150,6 @@ pub enum PySyntaxKind {
     Decorators, // list of decorators
     Docstring,  // docstring (first string literal in module/class/function)
 
-    // F-string components
-    FStringExpression, // {expression} part of f-string
-
     // Comments and whitespace
     Comment, // comment
     Newline, // newline

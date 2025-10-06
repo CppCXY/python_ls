@@ -620,6 +620,7 @@ impl<'a> PyLexer<'a> {
             "rb" | "br" => Some(PyTokenKind::TkRawBytesString), // Raw bytes
             "rf" | "fr" => Some(PyTokenKind::TkFString), // Raw f-string (if supported)
             "ur" | "ru" => Some(PyTokenKind::TkString), // Raw unicode (same as regular string)
+            "t" => Some(PyTokenKind::TkTString), // t-string (template string, Python 3.14+)
             _ => None,
         }
     }

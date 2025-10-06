@@ -1,6 +1,5 @@
 mod fstring;
 mod py;
-mod tstring;
 
 use crate::parser::CompleteMarker;
 pub use py::{parse_fstring_inner_expr, parse_module_suite};
